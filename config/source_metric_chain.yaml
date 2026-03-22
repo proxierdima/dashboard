@@ -1,0 +1,120 @@
+chains:
+  - chain_id: axelar-dojo-1
+    url: http://135.181.232.241:15709
+
+  - chain_id: juno-1
+    url: http://135.181.232.241:33660
+
+  - chain_id: push_42101-1
+    url: http://135.181.232.179:44660
+
+  - chain_id: akashnet-2
+    url: http://135.181.232.179:31660
+
+  - chain_id: lava-mainnet-1
+    url: http://51.161.172.90:14660
+
+  - chain_id: zetachain_7000-1
+    url: http://51.161.172.90:44660
+
+  - chain_id: cosmoshub-4
+    url: http://135.181.227.236:26660
+
+  - chain_id: provider
+    url: http://135.181.232.179:58660
+
+  - chain_id: axone-1
+    url: http://51.161.172.90:26660
+
+  - chain_id: osmosis-1
+    url: http://135.181.232.241:49660
+
+  - chain_id: aura_6322-2
+    url: http://135.181.232.241:11660
+
+  - chain_id: core-1
+    url: http://135.181.232.241:36660
+
+  - chain_id: secret-4
+    url: http://173.208.0.15:16660
+
+  - chain_id: stargaze-1
+    url: http://213.239.207.165:30660
+
+  - chain_id: atomone-1
+    url: http://51.161.172.90:41660
+
+  - chain_id: elys-1
+    url: http://51.161.172.90:48660
+
+  - chain_id: elysicstestnet-1
+    url: http://135.181.232.179:57660
+
+  - chain_id: pion-1
+    url: http://51.161.172.90:15700
+
+  - chain_id: barra_9191-1
+    url: http://135.181.232.241:64660
+
+  - chain_id: warden_8765-1
+    url: http://135.181.232.179:29660
+
+  - chain_id: bbn-test-5
+    url: http://135.181.232.241:63660
+
+  - chain_id: neutron-1
+    url: http://135.181.232.179:19660
+
+  - chain_id: agoric-3
+    url: http://135.181.232.179:18660
+
+  - chain_id: seq-mainnet-1
+    url: http://135.181.232.241:18660
+
+  - chain_id: kyve-1
+    url: http://135.181.232.241:34660
+
+  - chain_id: intento-1
+    url: http://51.161.172.90:25447
+
+  - chain_id: Oraichain
+    url: http://51.161.172.90:46660
+
+  - chain_id: bbn-1
+    url: http://213.239.207.165:24660
+
+  - chain_id: dungeon-1
+    url: http://213.239.207.165:33660
+
+  - chain_id: pirin-1
+    url: http://135.181.232.241:37660
+
+  - chain_id: humans_1089-1
+    url: http://135.181.232.179:32660
+
+  - chain_id: beezee-1
+    url: http://135.181.232.241:17660
+
+  - chain_id: fetchhub-4
+    url: http://135.181.232.241:15660
+
+  - chain_id: sunrise-1
+    url: http://51.161.172.90:39660
+
+  - chain_id: colosseum-1
+    url: http://135.181.232.241:14660
+
+  - chain_id: bitway-1
+    url: http://135.181.232.179:24660
+
+  - chain_id: ithaca-1
+    url: http://135.181.232.179:30660
+
+  - chain_id: atomone-testnet-1
+    url: http://135.181.232.179:59660
+
+  - chain_id: pio-mainnet-1
+    url: http://135.181.232.241:19660
+
+  - chain_id: lumen
+    url: http://135.181.227.236:16660

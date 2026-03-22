@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-theme="cyberpunk">
+<head>
+  <meta charset="utf-8">
+  <title>Validator Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="20">
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">VD</div>
+        <div>
+          <div class="brand-title">Validator Dashboard</div>
+          <div class="brand-subtitle">PostHuman monitor</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard">Overview</a>
+        <a href="/dashboard/proposals">Proposals</a>
+        <a href="/dashboard/rewards">Rewards</a>
+        <a href="/dashboard/public-rpc">Public RPC</a>
+        <a href="/dashboard/alerts">Alerts</a>
+        <a href="/dashboard/snapshots">Snapshots</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h1>Validator Dashboard</h1>
+          <p class="muted">Realtime overview of validator state, lag, metrics and health.</p>
+
+          <div class="theme-switcher-top">
+            <label for="themeSelect">Theme</label>
+            <select id="themeSelect">
+              <option value="cyberpunk">Cyberpunk</option>
+              <option value="space-age">Space Age</option>
+              <option value="futuristic">Futuristic</option>
+              <option value="alien">Alien</option>
+            </select>
+          </div>
+
+
+        </div>
+      </header>
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+
+
+  <script>
+    (function () {
+      const STORAGE_KEY = "validator_dashboard_theme";
+      const root = document.documentElement;
+      const select = document.getElementById("themeSelect");
+
+      function applyTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        localStorage.setItem(STORAGE_KEY, theme);
+        if (select) select.value = theme;
+      }
+
+      const savedTheme = localStorage.getItem(STORAGE_KEY) || "cyberpunk";
+      applyTheme(savedTheme);
+
+      if (select) {
+        select.addEventListener("change", function () {
+          applyTheme(this.value);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

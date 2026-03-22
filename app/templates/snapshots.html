@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-title">Snapshots</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Network</th>
+        <th>Status</th>
+        <th>Path</th>
+        <th>File</th>
+        <th>Size bytes</th>
+        <th>Age sec</th>
+        <th>Checked</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in items %}
+      <tr>
+        <td>{{ row.network_name }}</td>
+        <td>{{ status_emoji(row.status) }} {{ row.status or 'unknown' }}</td>
+        <td>{{ row.snapshot_path }}</td>
+        <td>{{ row.file_name or '' }}</td>
+        <td>{{ row.file_size_bytes or '' }}</td>
+        <td>{{ row.age_seconds or '' }}</td>
+        <td>{{ row.checked_at or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

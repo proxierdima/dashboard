@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-title">Open alerts</div>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Severity</th>
+        <th>Type</th>
+        <th>Network</th>
+        <th>Title</th>
+        <th>First seen</th>
+        <th>Last seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in items %}
+      <tr>
+        <td>{{ row.id }}</td>
+        <td>{{ row.severity }}</td>
+        <td>{{ row.event_type }}</td>
+        <td>{{ row.network_name or '' }}</td>
+        <td>{{ row.title }}</td>
+        <td>{{ row.first_seen_at }}</td>
+        <td>{{ row.last_seen_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header compact-header">
+    <div class="page-subtitle">
+        Public RPC grouped by network. Only OK endpoints are shown. Click a network row to expand top 3 rpc/rest/grpc.
+    </div>
+</div>
+
+<div class="table-wrap compact-table-wrap">
+    <table class="dashboard-table compact-table">
+        <thead>
+        <tr>
+            <th>Network</th>
+            <th>Best latency</th>
+            <th>Best height</th>
+            <th>RPC</th>
+            <th>REST</th>
+            <th>GRPC</th>
+            <th>Total OK</th>
+            <th>Checked</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% if rows %}
+            {% for row in rows %}
+            <tr class="validator-row" data-network-id="{{ row.chain_id }}">
+                <td><div class="network-name">{{ row.network_name }}</div></td>
+                <td>{{ row.best_latency_fmt }}</td>
+                <td>{{ row.best_remote_height_fmt }}</td>
+                <td>{{ row.rpc_count }}</td>
+                <td>{{ row.rest_count }}</td>
+                <td>{{ row.grpc_count }}</td>
+                <td>{{ row.total_count }}</td>
+                <td class="date-cell">{{ row.checked_at_fmt }}</td>
+            </tr>
+
+            <tr class="details-row hidden" id="details-row-{{ row.chain_id }}">
+                <td colspan="8" class="details-cell">
+                    <div class="inline-detail-panel compact-detail-panel">
+                        <div class="inline-detail-head">
+                            <div>
+                                <div class="detail-title">{{ row.network_name }}</div>
+                                <div class="detail-subtitle">Top 3 fastest OK public endpoints by type</div>
+                            </div>
+                            <button class="detail-close-btn inline-close-btn" type="button" data-network-id="{{ row.chain_id }}">✕</button>
+                        </div>
+
+                        <div class="rpc-type-grid">
+                            <div class="rpc-type-card">
+                                <div class="rpc-type-title">RPC</div>
+                                {% if row.rpc_items %}
+                                    <div class="rpc-mini-table-wrap">
+                                        <table class="rpc-mini-table">
+                                            <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>URL</th>
+                                                <th>Height</th>
+                                                <th>Latency</th>
+                                                <th>HTTP</th>
+                                                <th>Checked</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for item in row.rpc_items %}
+                                            <tr>
+                                                <td>{{ item.endpoint_type|upper }}</td>
+                                                <td class="mono wrap-anywhere rpc-url-cell">{{ item.url }}</td>
+                                                <td>{{ item.remote_height_fmt }}</td>
+                                                <td>{{ item.latency_fmt }}</td>
+                                                <td>{{ item.http_status or '—' }}</td>
+                                                <td>{{ item.checked_at_fmt }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="muted">No OK RPC endpoints.</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="rpc-type-card">
+                                <div class="rpc-type-title">REST</div>
+                                {% if row.rest_items %}
+                                    <div class="rpc-mini-table-wrap">
+                                        <table class="rpc-mini-table">
+                                            <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>URL</th>
+                                                <th>Height</th>
+                                                <th>Latency</th>
+                                                <th>HTTP</th>
+                                                <th>Checked</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for item in row.rest_items %}
+                                            <tr>
+                                                <td>{{ item.endpoint_type|upper }}</td>
+                                                <td class="mono wrap-anywhere rpc-url-cell">{{ item.url }}</td>
+                                                <td>{{ item.remote_height_fmt }}</td>
+                                                <td>{{ item.latency_fmt }}</td>
+                                                <td>{{ item.http_status or '—' }}</td>
+                                                <td>{{ item.checked_at_fmt }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="muted">No OK REST endpoints.</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="rpc-type-card">
+                                <div class="rpc-type-title">GRPC</div>
+                                {% if row.grpc_items %}
+                                    <div class="rpc-mini-table-wrap">
+                                        <table class="rpc-mini-table">
+                                            <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>URL</th>
+                                                <th>Height</th>
+                                                <th>Latency</th>
+                                                <th>HTTP</th>
+                                                <th>Checked</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for item in row.grpc_items %}
+                                            <tr>
+                                                <td>{{ item.endpoint_type|upper }}</td>
+                                                <td class="mono wrap-anywhere rpc-url-cell">{{ item.url }}</td>
+                                                <td>{{ item.remote_height_fmt }}</td>
+                                                <td>{{ item.latency_fmt }}</td>
+                                                <td>{{ item.http_status or '—' }}</td>
+                                                <td>{{ item.checked_at_fmt }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="muted">No OK GRPC endpoints.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="8" class="muted" style="text-align:center; padding: 18px;">
+                    No OK public RPC endpoints found.
+                </td>
+            </tr>
+        {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+(function () {
+    let openedNetworkId = null;
+
+    function closeDetails(networkId) {
+        const row = document.querySelector(`.validator-row[data-network-id="${networkId}"]`);
+        const detailsRow = document.getElementById(`details-row-${networkId}`);
+        if (row) row.classList.remove('active');
+        if (detailsRow) detailsRow.classList.add('hidden');
+        if (openedNetworkId === networkId) openedNetworkId = null;
+    }
+
+    function closeAllDetails() {
+        document.querySelectorAll('.validator-row.active').forEach((row) => row.classList.remove('active'));
+        document.querySelectorAll('.details-row').forEach((row) => row.classList.add('hidden'));
+        openedNetworkId = null;
+    }
+
+    document.querySelectorAll('.validator-row[data-network-id]').forEach((row) => {
+        row.addEventListener('click', () => {
+            const networkId = row.dataset.networkId;
+            const detailsRow = document.getElementById(`details-row-${networkId}`);
+
+            if (!detailsRow) return;
+
+            if (openedNetworkId === networkId && !detailsRow.classList.contains('hidden')) {
+                closeDetails(networkId);
+                return;
+            }
+
+            closeAllDetails();
+            row.classList.add('active');
+            detailsRow.classList.remove('hidden');
+            openedNetworkId = networkId;
+        });
+    });
+
+    document.querySelectorAll('.inline-close-btn[data-network-id]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closeDetails(btn.dataset.networkId);
+        });
+    });
+})();
+</script>
+{% endblock %}

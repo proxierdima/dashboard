@@ -1,0 +1,8 @@
+{
+  "status": "error",
+  "last_started_at": "2026-03-21T03:43:25.746160+00:00",
+  "last_finished_at": "2026-03-21T03:43:26.593960+00:00",
+  "last_success_at": null,
+  "last_error": "Traceback (most recent call last):\n  File \"/mnt/c/Users/kostd/validator_dashboard_new/scripts/commission_report_from_db.py\", line 344, in <module>\n    main()\n  File \"/mnt/c/Users/kostd/validator_dashboard_new/scripts/commission_report_from_db.py\", line 270, in main\n    sources = get_sources_from_db()\n              ^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/c/Users/kostd/validator_dashboard_new/scripts/commission_report_from_db.py\", line 105, in get_sources_from_db\n    TrackedNetwork.network_id,\n    ^^^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: type object 'TrackedNetwork' has no attribute 'network_id'. Did you mean: 'network'?",
+  "last_returncode": 1
+}

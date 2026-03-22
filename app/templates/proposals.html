@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header compact-header">
+    <div class="page-subtitle">
+        Proposals for networks where our validator exists.
+    </div>
+</div>
+
+<div class="table-wrap compact-table-wrap">
+    <table class="dashboard-table compact-table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Network</th>
+            <th>Topic</th>
+            <th>Our vote</th>
+            <th>Majority</th>
+	    <th>End</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% if rows %}
+            {% for row in rows %}
+            <tr>
+                <td class="num-cell">{{ row.proposal_id }}</td>
+                <td><div class="network-name">{{ row.network_name }}</div></td>
+                <td>{{ row.topic }}</td>
+                <td>
+                    {% if row.our_vote == 'YES' %}
+                        <span class="status-pill ok">YES</span>
+                    {% elif row.our_vote == 'NO' %}
+                        <span class="status-pill critical">NO</span>
+                    {% elif row.our_vote == 'ABSTAIN' %}
+                        <span class="status-pill warning">ABSTAIN</span>
+                    {% elif row.our_vote == 'VETO' %}
+                        <span class="status-pill critical">VETO</span>
+                    {% else %}
+                        <span class="status-pill muted">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.majority == 'YES' %}
+                        <span class="status-pill ok">YES</span>
+                    {% elif row.majority == 'NO' %}
+                        <span class="status-pill critical">NO</span>
+                    {% elif row.majority == 'ABSTAIN' %}
+                        <span class="status-pill warning">ABSTAIN</span>
+                    {% elif row.majority == 'VETO' %}
+                        <span class="status-pill critical">VETO</span>
+                    {% else %}
+                        <span class="status-pill muted">—</span>
+                    {% endif %}
+                </td>
+		<td class="date-cell">
+                    {{ row.voting_end_time_fmt }}
+                </td>
+                <td>
+                    {% if row.status_badge == 'active' %}
+                        <span class="status-pill warning">{{ row.status or 'ACTIVE' }}</span>
+                    {% elif row.status_badge == 'ok' %}
+                        <span class="status-pill ok">{{ row.status or 'PASSED' }}</span>
+                    {% elif row.status_badge == 'critical' %}
+                        <span class="status-pill critical">{{ row.status or 'REJECTED' }}</span>
+                    {% else %}
+                        <span class="status-pill muted">{{ row.status or '—' }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="6" class="muted" style="text-align:center; padding: 18px;">
+                    No proposals found for validator networks.
+                </td>
+            </tr>
+        {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

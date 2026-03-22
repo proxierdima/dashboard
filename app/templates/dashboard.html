@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header compact-header">
+    <div class="page-subtitle">Validator overview. Click a row to expand details.</div>
+</div>
+
+<div class="cards compact-cards">
+    <div class="card stat-card">
+        <div class="label">Networks</div>
+        <div class="value">{{ totals.networks }}</div>
+    </div>
+    <div class="card stat-card ok-card">
+        <div class="label">OK</div>
+        <div class="value">{{ totals.ok }}</div>
+    </div>
+    <div class="card stat-card warning-card">
+        <div class="label">Warning</div>
+        <div class="value">{{ totals.warning }}</div>
+    </div>
+    <div class="card stat-card critical-card">
+        <div class="label">Critical</div>
+        <div class="value">{{ totals.critical }}</div>
+    </div>
+    <div class="card stat-card">
+        <div class="label">Open alerts</div>
+        <div class="value">{{ totals.alerts }}</div>
+    </div>
+</div>
+
+<div class="table-wrap compact-table-wrap">
+    <table class="dashboard-table compact-table">
+        <thead>
+        <tr>
+            <th>Status</th>
+            <th>Network</th>
+            <th>Moniker</th>
+            <th>Valoper</th>
+            <th>Lag</th>
+            <th>Peers</th>
+            <th>Missed</th>
+            <th>Updated</th>
+            <th>Error</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+            <tr class="validator-row {{ row.overall_status }}" data-validator-id="{{ row.validator_id }}">
+                <td>
+                    <div class="status-cell">
+                        <span class="status-dot {{ row.overall_status }}"></span>
+                        <span class="status-pill {{ row.overall_status }}">{{ row.overall_status|upper }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="network-name">{{ row.chain_display }}</div>
+                </td>
+                <td>
+                    <div class="moniker-main">{{ row.moniker }}</div>
+                </td>
+                <td class="mono wrap-anywhere small-mono">{{ row.valoper_address }}</td>
+                <td class="num-cell">{{ row.height_lag_display }}</td>
+                <td class="num-cell">{{ row.peers_display }}</td>
+                <td class="num-cell">{{ row.missed_blocks_display }}</td>
+                <td class="updated-cell">{{ row.updated_at_fmt }}</td>
+                <td class="error-cell">
+                    {% if row.fetch_error %}
+                        <div class="tooltip tooltip-left">
+                            <span class="error-icon">⚠</span>
+                            <div class="tooltip-text">{{ row.fetch_error }}</div>
+                        </div>
+                    {% else %}
+                        <span class="muted center-dash">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+
+            <tr class="details-row hidden" id="details-row-{{ row.validator_id }}">
+                <td colspan="9" class="details-cell">
+                    <div class="inline-detail-panel compact-detail-panel">
+                        <div class="inline-detail-head">
+                            <div>
+                                <div class="detail-title" id="detail-title-{{ row.validator_id }}">{{ row.moniker }}</div>
+                                <div class="detail-subtitle" id="detail-subtitle-{{ row.validator_id }}">
+                                    {{ row.chain_display }} · loading...
+                                </div>
+                            </div>
+                            <button class="detail-close-btn inline-close-btn" type="button" data-validator-id="{{ row.validator_id }}">✕</button>
+                        </div>
+
+                        <div class="detail-loading" id="detail-loading-{{ row.validator_id }}">Loading details…</div>
+
+                        <div class="detail-grid hidden" id="detail-content-{{ row.validator_id }}">
+                            <div class="detail-card">
+                                <div class="detail-card-title">Identity</div>
+                                <div class="detail-kv"><span>Moniker</span><strong id="d-moniker-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Chain</span><strong id="d-chain-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Operator</span><strong id="d-operator-{{ row.validator_id }}" class="mono wrap-anywhere">—</strong></div>
+                                <div class="detail-kv"><span>Delegator</span><strong id="d-delegator-{{ row.validator_id }}" class="mono wrap-anywhere">—</strong></div>
+                                <div class="detail-kv"><span>RPC URL</span><strong id="d-rpc-url-{{ row.validator_id }}" class="mono wrap-anywhere">—</strong></div>
+                                <div class="detail-kv"><span>Metrics URL</span><strong id="d-metrics-url-{{ row.validator_id }}" class="mono wrap-anywhere">—</strong></div>
+                            </div>
+
+                            <div class="detail-card">
+                                <div class="detail-card-title">Status</div>
+                                <div class="detail-kv"><span>Fetch OK</span><strong id="d-fetch-ok-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Height lag</span><strong id="d-height-lag-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Current height</span><strong id="d-current-height-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Network height</span><strong id="d-network-height-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Last signed height</span><strong id="d-last-signed-height-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Missed blocks</span><strong id="d-missed-blocks-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Syncing</span><strong id="d-syncing-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Updated</span><strong id="d-updated-{{ row.validator_id }}">—</strong></div>
+                            </div>
+
+                            <div class="detail-card">
+                                <div class="detail-card-title">Performance</div>
+                                <div class="detail-kv"><span>Peers</span><strong id="d-peers-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Voting power %</span><strong id="d-voting-power-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Block interval</span><strong id="d-block-interval-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Round duration</span><strong id="d-round-duration-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Finalize block</span><strong id="d-finalize-block-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Query avg</span><strong id="d-query-avg-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>CPU seconds</span><strong id="d-cpu-seconds-{{ row.validator_id }}">—</strong></div>
+                            </div>
+
+                            <div class="detail-card">
+                                <div class="detail-card-title">Resources</div>
+                                <div class="detail-kv"><span>Resident memory</span><strong id="d-resident-memory-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Open FDs</span><strong id="d-open-fds-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Goroutines</span><strong id="d-goroutines-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Mempool size</span><strong id="d-mempool-size-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Block size bytes</span><strong id="d-block-size-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>GC pause p50</span><strong id="d-gc-pause-{{ row.validator_id }}">—</strong></div>
+                                <div class="detail-kv"><span>Error</span><strong id="d-fetch-error-{{ row.validator_id }}" class="wrap-anywhere">—</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+(function () {
+    let openedValidatorId = null;
+
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = (value === null || value === undefined || value === '') ? '—' : value;
+    }
+
+    function fmt(value, digits = 2) {
+        if (value === null || value === undefined || value === '') return '—';
+        const num = Number(value);
+        if (Number.isNaN(num)) return String(value);
+        if (Number.isInteger(num)) return String(num);
+        return num.toFixed(digits).replace(/\.0+$|(?<=\..*?)0+$/g, '').replace(/\.$/, '');
+    }
+
+    function fmtMb(value) {
+        if (value === null || value === undefined || value === '') return '—';
+        const num = Number(value);
+        if (Number.isNaN(num)) return String(value);
+        return (num / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function fmtYesNo(value) {
+        if (value === 1 || value === true || value === '1') return 'yes';
+        if (value === 0 || value === false || value === '0') return 'no';
+        return '—';
+    }
+
+    function closeDetails(validatorId) {
+        const row = document.querySelector(`.validator-row[data-validator-id="${validatorId}"]`);
+        const detailsRow = document.getElementById(`details-row-${validatorId}`);
+        if (row) row.classList.remove('active');
+        if (detailsRow) detailsRow.classList.add('hidden');
+        if (openedValidatorId === validatorId) openedValidatorId = null;
+    }
+
+    function closeAllDetails() {
+        document.querySelectorAll('.validator-row.active').forEach((row) => row.classList.remove('active'));
+        document.querySelectorAll('.details-row').forEach((row) => row.classList.add('hidden'));
+        openedValidatorId = null;
+    }
+
+    async function loadValidatorDetails(validatorId, moniker, chainDisplay) {
+        const detailsRow = document.getElementById(`details-row-${validatorId}`);
+        const loading = document.getElementById(`detail-loading-${validatorId}`);
+        const content = document.getElementById(`detail-content-${validatorId}`);
+
+        if (!detailsRow) return;
+
+        if (openedValidatorId === validatorId && !detailsRow.classList.contains('hidden')) {
+            closeDetails(validatorId);
+            return;
+        }
+
+        closeAllDetails();
+
+        const mainRow = document.querySelector(`.validator-row[data-validator-id="${validatorId}"]`);
+        if (mainRow) mainRow.classList.add('active');
+
+        detailsRow.classList.remove('hidden');
+        loading.classList.remove('hidden');
+        content.classList.add('hidden');
+
+        setText(`detail-title-${validatorId}`, moniker || 'Validator details');
+        setText(`detail-subtitle-${validatorId}`, `${chainDisplay || '—'} · loading...`);
+
+        openedValidatorId = validatorId;
+
+        try {
+            const resp = await fetch(`/validators/${validatorId}/details`);
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                throw new Error(data.error || 'Failed to load validator details');
+            }
+
+            setText(`detail-title-${validatorId}`, data.moniker);
+            setText(`detail-subtitle-${validatorId}`, `${data.chain_id || '—'} · updated ${data.updated_at_fmt || '—'}`);
+
+            setText(`d-moniker-${validatorId}`, data.moniker);
+            setText(`d-chain-${validatorId}`, data.chain_id);
+            setText(`d-operator-${validatorId}`, data.operator_address);
+            setText(`d-delegator-${validatorId}`, data.delegator_address);
+            setText(`d-rpc-url-${validatorId}`, data.rpc_url);
+            setText(`d-metrics-url-${validatorId}`, data.metrics_url);
+
+            setText(`d-fetch-ok-${validatorId}`, Number(data.fetch_ok || 0) === 1 ? 'yes' : 'no');
+            setText(`d-height-lag-${validatorId}`, fmt(data.height_lag, 0));
+            setText(`d-current-height-${validatorId}`, fmt(data.current_height, 0));
+            setText(`d-network-height-${validatorId}`, fmt(data.network_height, 0));
+            setText(`d-last-signed-height-${validatorId}`, fmt(data.last_signed_height, 0));
+            setText(`d-missed-blocks-${validatorId}`, fmt(data.missed_blocks, 0));
+            setText(`d-syncing-${validatorId}`, fmtYesNo(data.is_block_syncing));
+            setText(`d-updated-${validatorId}`, data.updated_at_fmt);
+
+            setText(`d-peers-${validatorId}`, fmt(data.peers, 0));
+            setText(`d-voting-power-${validatorId}`, data.voting_power_percent == null ? '—' : fmt(data.voting_power_percent, 4) + '%');
+            setText(`d-block-interval-${validatorId}`, fmt(data.block_interval_avg_sec));
+            setText(`d-round-duration-${validatorId}`, fmt(data.round_duration_avg_sec));
+            setText(`d-finalize-block-${validatorId}`, fmt(data.finalize_block_avg_sec));
+            setText(`d-query-avg-${validatorId}`, fmt(data.query_avg_sec));
+            setText(`d-cpu-seconds-${validatorId}`, fmt(data.cpu_seconds_total));
+
+            setText(`d-resident-memory-${validatorId}`, data.resident_memory_display || fmtMb(data.resident_memory_bytes));
+            setText(`d-open-fds-${validatorId}`, fmt(data.open_fds, 0));
+            setText(`d-goroutines-${validatorId}`, fmt(data.goroutines, 0));
+            setText(`d-mempool-size-${validatorId}`, fmt(data.mempool_size, 0));
+            setText(`d-block-size-${validatorId}`, fmt(data.block_size_bytes, 0));
+            setText(`d-gc-pause-${validatorId}`, fmt(data.gc_pause_p50_sec));
+            setText(`d-fetch-error-${validatorId}`, data.fetch_error || '—');
+
+            loading.classList.add('hidden');
+            content.classList.remove('hidden');
+        } catch (error) {
+            setText(`detail-subtitle-${validatorId}`, error.message || 'Failed to load details');
+            loading.classList.add('hidden');
+            content.classList.add('hidden');
+        }
+    }
+
+    document.querySelectorAll('.validator-row').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('.tooltip')) return;
+
+            const validatorId = row.dataset.validatorId;
+            const moniker = row.querySelector('.moniker-main')?.textContent?.trim() || 'Validator details';
+            const chainDisplay = row.children[1]?.textContent?.trim() || '—';
+            loadValidatorDetails(validatorId, moniker, chainDisplay);
+        });
+    });
+
+    document.querySelectorAll('.inline-close-btn').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closeDetails(btn.dataset.validatorId);
+        });
+    });
+})();
+</script>
+{% endblock %}

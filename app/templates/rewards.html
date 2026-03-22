@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="rewards-compact">
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-title">Commission report</div>
+
+  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+    <form method="post" action="/dashboard/rewards/run" style="margin:0;">
+      <button type="submit" class="btn-primary" {% if lock_exists %}disabled{% endif %}>
+        {% if lock_exists %}Running...{% else %}Run commission report{% endif %}
+      </button>
+    </form>
+
+    <div class="muted">
+      Status: <strong>{{ job_status.status }}</strong>
+      {% if job_status.last_started_at %} | started: {{ job_status.last_started_at_fmt }}{% endif %}
+      {% if job_status.last_finished_at %} | finished: {{ job_status.last_finished_at_fmt }}{% endif %}
+      {% if snapshot.timestamp %} | snapshot: {{ snapshot.timestamp }}{% endif %}
+    </div>
+  </div>
+
+  {% if job_status.last_error %}
+  <div class="details-error">
+    {{ job_status.last_error }}
+  </div>
+  {% endif %}
+
+  <div class="muted" style="margin-top:8px;">
+    Grand total: <strong>${{ "%.2f"|format(snapshot.grand_total or 0) }}</strong>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">Rewards</div>
+
+  <div class="tabs">
+    <button class="tab-button active" onclick="openTab(event, 'networks')">By Network</button>
+    <button class="tab-button" onclick="openTab(event, 'details')">Detailed Rows</button>
+    <button class="tab-button" onclick="openTab(event, 'missing')">Missing</button>
+  </div>
+
+  <div id="networks" class="tabcontent active">
+    <table>
+      <thead>
+        <tr>
+          <th>Network</th>
+          <th>Amount</th>
+          <th>Total USD</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in totals_sorted %}
+        <tr>
+          <td>{{ r.network }}</td>
+          <td>{{ "%.6f"|format(r.amount or 0) }}</td>
+        <td>${{ "%.2f"|format(r.total or 0) }}</td>
+        </tr>
+      {% endfor %}
+      {% if not totals_sorted %}
+        <tr>
+          <td colspan="3" class="muted">No data yet. Run commission report.</td>
+        </tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="details" class="tabcontent">
+    <table>
+      <thead>
+        <tr>
+          <th>Network</th>
+          <th>Token</th>
+          <th>Amount</th>
+          <th>Price USD</th>
+          <th>Total USD</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.network }}</td>
+          <td>{{ r.display }}</td>
+          <td>{{ "%.6f"|format(r.amount or 0) }}</td>
+          <td>{{ "%.6f"|format(r.price or 0) }}</td>
+          <td>${{ "%.2f"|format(r.total or 0) }}</td>
+        </tr>
+      {% endfor %}
+      {% if not rows %}
+        <tr>
+          <td colspan="5" class="muted">No detailed rows yet. Run commission report.</td>
+        </tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="missing" class="tabcontent">
+    <table>
+      <thead>
+        <tr>
+          <th>Network</th>
+          <th>Chain ID</th>
+          <th>Valoper</th>
+          <th>REST</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in missing %}
+        <tr>
+          <td>{{ r.network or '' }}</td>
+          <td>{{ r.chain_id or '' }}</td>
+          <td class="mono">{{ r.valoper or '' }}</td>
+          <td class="mono">{{ r.rest or '' }}</td>
+          <td>{{ r.reason or '' }}</td>
+        </tr>
+      {% endfor %}
+      {% if not missing %}
+        <tr>
+          <td colspan="5" class="muted">No missing networks.</td>
+        </tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+function openTab(evt, name) {
+  const tabs = document.getElementsByClassName("tabcontent");
+  const buttons = document.getElementsByClassName("tab-button");
+
+  for (let i = 0; i < tabs.length; i++) {
+    tabs[i].classList.remove("active");
+  }
+
+  for (let i = 0; i < buttons.length; i++) {
+    buttons[i].classList.remove("active");
+  }
+
+  document.getElementById(name).classList.add("active");
+  evt.currentTarget.classList.add("active");
+}
+</script>
+
+<style>
+.rewards-compact .btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px !important;
+  font-size: 14px !important;
+  cursor: pointer;
+}
+
+.rewards-compact .btn-primary:hover {
+  opacity: 0.92;
+}
+
+.rewards-compact .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rewards-compact .tabcontent {
+  display: none;
+}
+
+.rewards-compact .tabcontent.active {
+  display: block;
+}
+
+.rewards-compact .panel {
+  padding: 10px 12px !important;
+}
+
+.rewards-compact .panel-title {
+  margin-bottom: 8px !important;
+  font-size: 14px !important;
+}
+
+.rewards-compact .tabs {
+  margin-bottom: 8px !important;
+}
+
+.rewards-compact .tab-button {
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  line-height: 1.1 !important;
+}
+
+.rewards-compact table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.rewards-compact th,
+.rewards-compact td {
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  line-height: 1.15 !important;
+  vertical-align: middle !important;
+}
+
+.rewards-compact th {
+  font-size: 10px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+.rewards-compact tbody tr {
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.rewards-compact .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+  word-break: break-all;
+}
+
+.rewards-compact .muted,
+.rewards-compact .details-error {
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+}
+</style>
+
+</div>
+{% endblock %}
