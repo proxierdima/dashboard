@@ -11,19 +11,14 @@ from app.models_chainid.base import Base
 
 from app.models_chainid import (  # noqa: F401
     EndpointCheck,
-    Event,
+    GovernanceProposal,
     Network,
     NetworkAsset,
     NetworkEndpoint,
-    NetworkStatusCurrent,
     PublicRpcCheck,
     PublicRpcEndpoint,
-    SnapshotCheck,
-    SnapshotTarget,
-    TrackedNetwork,
     Validator,
-    ValidatorStatusCurrent,
-    ValidatorStatusHistory,
+    ValidatorMetricsCurrent,
 )
 
 

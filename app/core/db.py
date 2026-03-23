@@ -18,14 +18,6 @@ SessionLocal = sessionmaker(
 )
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 def check_db_connection() -> bool:
     try:
         with engine.connect() as conn:

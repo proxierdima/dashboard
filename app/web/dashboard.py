@@ -340,41 +340,6 @@ def get_dashboard_rows(conn):
     return result
 
 
-def get_public_rpc_rows(conn):
-    rows = conn.execute(
-        """
-        SELECT
-            n.chain_id AS chain_id,
-            n.name AS network_name,
-            COALESCE(n.display_name, n.name) AS network_display_name,
-            ne.url,
-            ne.priority,
-            ec.status,
-            ec.http_status,
-            ec.latency_ms,
-            ec.remote_height,
-            ec.error_message,
-            ec.checked_at
-        FROM network_endpoints ne
-        JOIN networks n ON n.chain_id = ne.chain_id
-        LEFT JOIN (
-            SELECT endpoint_id, MAX(checked_at) AS max_checked_at
-            FROM endpoint_checks
-            GROUP BY endpoint_id
-        ) latest ON latest.endpoint_id = ne.id
-        LEFT JOIN endpoint_checks ec
-          ON ec.endpoint_id = ne.id
-         AND ec.checked_at = latest.max_checked_at
-        WHERE ne.endpoint_type = 'rpc'
-          AND COALESCE(ne.is_enabled, 1) = 1
-          AND COALESCE(ne.is_public, 0) = 1
-          AND COALESCE(n.is_enabled, 1) = 1
-        ORDER BY n.name ASC, COALESCE(ne.priority, 999999) ASC, ne.id ASC
-        """
-    ).fetchall()
-    return rows
-
-
 @router.get("/dashboard")
 def dashboard(request: Request):
     conn = db_connect()

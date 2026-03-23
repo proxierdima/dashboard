@@ -73,9 +73,3 @@ class Network(Base):
         primaryjoin="Network.chain_id == foreign(Validator.chain_id)",
         cascade="all, delete-orphan",
     )
-    snapshot_targets = relationship(
-        "SnapshotTarget",
-        back_populates="network",
-        primaryjoin="Network.chain_id == foreign(SnapshotTarget.chain_id)",
-        cascade="all, delete-orphan",
-    )
