@@ -9,7 +9,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -18,16 +18,6 @@ router = APIRouter()
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DB_FILE = ROOT_DIR / "validator_dashboard_chainid.db"
 TEMPLATES = Jinja2Templates(directory=str(ROOT_DIR / "app" / "templates"))
-
-SCRIPT_PATH = ROOT_DIR / "scripts" / "commission_report_from_db.py"
-SNAPSHOT_PATH = ROOT_DIR / "commission_snapshot.json"
-MISSING_PATH = ROOT_DIR / "missing_networks.json"
-
-DATA_DIR = ROOT_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
-
-JOB_STATUS_PATH = DATA_DIR / "rewards_job_status.json"
-JOB_LOCK_PATH = DATA_DIR / "rewards_job.lock"
 
 
 def db_connect():
@@ -45,93 +35,6 @@ def format_utc(ts: str | None) -> str:
         return dt.strftime("%H:%M %d-%m-%Y UTC")
     except Exception:
         return str(ts)
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def load_json(path: Path, default):
-    if not path.exists():
-        return default
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-
-def save_job_status(payload: dict) -> None:
-    with JOB_STATUS_PATH.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
-
-
-def read_job_status() -> dict:
-    return load_json(
-        JOB_STATUS_PATH,
-        {
-            "status": "idle",
-            "last_started_at": None,
-            "last_finished_at": None,
-            "last_success_at": None,
-            "last_error": None,
-            "last_returncode": None,
-        },
-    )
-
-
-def run_commission_report() -> None:
-    if JOB_LOCK_PATH.exists():
-        return
-
-    JOB_LOCK_PATH.write_text("running", encoding="utf-8")
-
-    status = read_job_status()
-    status["status"] = "running"
-    status["last_started_at"] = utc_now_iso()
-    status["last_error"] = None
-    save_job_status(status)
-
-    try:
-        result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH)],
-            cwd=str(ROOT_DIR),
-            capture_output=True,
-            text=True,
-        )
-
-        status["last_finished_at"] = utc_now_iso()
-        status["last_returncode"] = result.returncode
-
-        if result.returncode == 0:
-            status["status"] = "ok"
-            status["last_success_at"] = status["last_finished_at"]
-            status["last_error"] = None
-        else:
-            status["status"] = "error"
-            err_text = (result.stderr or result.stdout or "unknown error").strip()
-            status["last_error"] = err_text[-4000:]
-
-        save_job_status(status)
-
-    except Exception as e:
-        status["status"] = "error"
-        status["last_finished_at"] = utc_now_iso()
-        status["last_error"] = str(e)
-        save_job_status(status)
-
-    finally:
-        try:
-            JOB_LOCK_PATH.unlink(missing_ok=True)
-        except Exception:
-            pass
-
-
-def get_scalar(conn, sql: str, params=()):
-    row = conn.execute(sql, params).fetchone()
-    if row is None:
-        return 0
-    return row[0] or 0
 
 
 def format_number(value, decimals: int = 2) -> str:
@@ -357,60 +260,6 @@ def dashboard(request: Request):
             "rows": rows,
         },
     )
-
-
-@router.get("/dashboard/rewards")
-def dashboard_rewards(request: Request):
-    snapshot = load_json(
-        SNAPSHOT_PATH,
-        {
-            "timestamp": None,
-            "rows": [],
-            "totals_by_network": {},
-            "grand_total": 0,
-        },
-    )
-    missing = load_json(MISSING_PATH, [])
-    job_status = read_job_status()
-
-    job_status["last_started_at_fmt"] = format_utc(job_status.get("last_started_at"))
-    job_status["last_finished_at_fmt"] = format_utc(job_status.get("last_finished_at"))
-    job_status["last_success_at_fmt"] = format_utc(job_status.get("last_success_at"))
-    snapshot["timestamp_fmt"] = format_utc(snapshot.get("timestamp"))
-
-    rows = snapshot.get("rows", []) or []
-    rows = sorted(rows, key=lambda r: float(r.get("total") or 0), reverse=True)
-
-    network_totals = {}
-    for r in rows:
-        network = r.get("network") or "unknown"
-        amount = float(r.get("amount") or 0)
-        total = float(r.get("total") or 0)
-        network_totals.setdefault(network, {"network": network, "amount": 0.0, "total": 0.0})
-        network_totals[network]["amount"] += amount
-        network_totals[network]["total"] += total
-
-    totals_sorted = sorted(network_totals.values(), key=lambda x: x["total"], reverse=True)
-
-    return TEMPLATES.TemplateResponse(
-        "rewards.html",
-        {
-            "request": request,
-            "job_status": job_status,
-            "snapshot": snapshot,
-            "totals_sorted": totals_sorted,
-            "rows": rows,
-            "missing": missing,
-            "lock_exists": JOB_LOCK_PATH.exists(),
-        },
-    )
-
-
-@router.post("/dashboard/rewards/run")
-def dashboard_rewards_run(background_tasks: BackgroundTasks):
-    if not JOB_LOCK_PATH.exists():
-        background_tasks.add_task(run_commission_report)
-    return RedirectResponse(url="/dashboard/rewards", status_code=303)
 
 
 @router.get("/dashboard/public-rpc")

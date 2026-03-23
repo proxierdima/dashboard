@@ -170,16 +170,6 @@ def find_metric_value(index: dict[str, list[dict]], metric_name: str, required_l
     return None
 
 
-def sum_metric_values(index: dict[str, list[dict]], metric_name: str):
-    rows = index.get(metric_name, [])
-    if not rows:
-        return None
-    total = 0
-    for row in rows:
-        total += row["value"]
-    return total
-
-
 def avg(sum_value, count_value):
     if sum_value is None or count_value in (None, 0):
         return None
