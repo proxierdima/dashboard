@@ -1,0 +1,826 @@
+diff -ru dashboard_original/dashboard/app/models_chainid/__init__.py dashboard_extracted/dashboard/app/models_chainid/__init__.py
+--- dashboard_original/dashboard/app/models_chainid/__init__.py	2026-03-22 23:03:53.000000000 +0000
++++ dashboard_extracted/dashboard/app/models_chainid/__init__.py	2026-03-26 00:22:44.016175213 +0000
+@@ -5,7 +5,7 @@
+ from app.models_chainid.endpoint import NetworkEndpoint, EndpointCheck
+ from app.models_chainid.network_asset import NetworkAsset
+ from app.models_chainid.public_rpc import PublicRpcEndpoint, PublicRpcCheck
+-from app.models_chainid.metrics_current import ValidatorMetricsCurrent
++from app.models_chainid.metrics_current import ValidatorMetricsCurrent, ValidatorMetricsHistory
+ from app.models_chainid.governance import GovernanceProposal
+ 
+ __all__ = [
+@@ -19,4 +19,5 @@
+     "PublicRpcEndpoint",
+     "PublicRpcCheck",
+     "ValidatorMetricsCurrent",
++    "ValidatorMetricsHistory",
+ ]
+Only in dashboard_extracted/dashboard/app/models_chainid/__pycache__: metrics_current.cpython-313.pyc
+diff -ru dashboard_original/dashboard/app/models_chainid/metrics_current.py dashboard_extracted/dashboard/app/models_chainid/metrics_current.py
+--- dashboard_original/dashboard/app/models_chainid/metrics_current.py	2026-03-22 22:27:00.000000000 +0000
++++ dashboard_extracted/dashboard/app/models_chainid/metrics_current.py	2026-03-26 00:22:44.006606541 +0000
+@@ -1,4 +1,4 @@
+-from sqlalchemy import Integer, String, Float, Text, DateTime
++from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text
+ from sqlalchemy.orm import Mapped, mapped_column
+ 
+ from app.models_chainid.base import Base
+@@ -70,3 +70,105 @@
+ 
+     raw_json: Mapped[str | None] = mapped_column(Text)
+     updated_at: Mapped[str | None] = mapped_column(String(50), index=True)
++
++
++class ValidatorMetricsHistory(Base):
++    __tablename__ = "validator_metrics_history"
++    __table_args__ = (
++        Index("ix_validator_metrics_history_validator_sampled", "validator_id", "sampled_at"),
++        Index("ix_validator_metrics_history_chain_sampled", "chain_id", "sampled_at"),
++    )
++
++    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
++    validator_id: Mapped[int] = mapped_column(ForeignKey("validators.id"), index=True)
++
++    chain_id: Mapped[str | None] = mapped_column(String(100), index=True)
++    operator_address: Mapped[str | None] = mapped_column(String(200), index=True)
++    metrics_url: Mapped[str | None] = mapped_column(String(255))
++
++    fetch_ok: Mapped[int] = mapped_column(Integer, default=0)
++    fetch_error: Mapped[str | None] = mapped_column(Text)
++
++    current_height: Mapped[int | None] = mapped_column(Integer)
++    network_height: Mapped[int | None] = mapped_column(Integer)
++    height_lag: Mapped[int | None] = mapped_column(Integer)
++
++    last_signed_height: Mapped[int | None] = mapped_column(Integer)
++    signed_lag: Mapped[int | None] = mapped_column(Integer)
++    missed_blocks: Mapped[int | None] = mapped_column(Integer)
++
++    peers: Mapped[int | None] = mapped_column(Integer)
++    is_block_syncing: Mapped[int | None] = mapped_column(Integer)
++
++    validator_power: Mapped[int | None] = mapped_column(Integer)
++    validators_power: Mapped[int | None] = mapped_column(Integer)
++    validators_count: Mapped[int | None] = mapped_column(Integer)
++    voting_power_percent: Mapped[float | None] = mapped_column(Float)
++
++    block_interval_avg_sec: Mapped[float | None] = mapped_column(Float)
++    round_duration_avg_sec: Mapped[float | None] = mapped_column(Float)
++    step_new_height_avg_sec: Mapped[float | None] = mapped_column(Float)
++    step_propose_avg_sec: Mapped[float | None] = mapped_column(Float)
++    step_prevote_avg_sec: Mapped[float | None] = mapped_column(Float)
++    step_precommit_avg_sec: Mapped[float | None] = mapped_column(Float)
++    step_commit_avg_sec: Mapped[float | None] = mapped_column(Float)
++
++    commit_avg_sec: Mapped[float | None] = mapped_column(Float)
++    finalize_block_avg_sec: Mapped[float | None] = mapped_column(Float)
++    process_proposal_avg_sec: Mapped[float | None] = mapped_column(Float)
++    query_avg_sec: Mapped[float | None] = mapped_column(Float)
++    flush_avg_sec: Mapped[float | None] = mapped_column(Float)
++    block_processing_avg_ms: Mapped[float | None] = mapped_column(Float)
++
++    block_interval_sum_sec: Mapped[float | None] = mapped_column(Float)
++    block_interval_count: Mapped[float | None] = mapped_column(Float)
++    round_duration_sum_sec: Mapped[float | None] = mapped_column(Float)
++    round_duration_count: Mapped[float | None] = mapped_column(Float)
++
++    step_new_height_sum_sec: Mapped[float | None] = mapped_column(Float)
++    step_new_height_count: Mapped[float | None] = mapped_column(Float)
++    step_propose_sum_sec: Mapped[float | None] = mapped_column(Float)
++    step_propose_count: Mapped[float | None] = mapped_column(Float)
++    step_prevote_sum_sec: Mapped[float | None] = mapped_column(Float)
++    step_prevote_count: Mapped[float | None] = mapped_column(Float)
++    step_precommit_sum_sec: Mapped[float | None] = mapped_column(Float)
++    step_precommit_count: Mapped[float | None] = mapped_column(Float)
++    step_commit_sum_sec: Mapped[float | None] = mapped_column(Float)
++    step_commit_count: Mapped[float | None] = mapped_column(Float)
++
++    commit_sum_sec: Mapped[float | None] = mapped_column(Float)
++    commit_count: Mapped[float | None] = mapped_column(Float)
++    finalize_block_sum_sec: Mapped[float | None] = mapped_column(Float)
++    finalize_block_count: Mapped[float | None] = mapped_column(Float)
++    process_proposal_sum_sec: Mapped[float | None] = mapped_column(Float)
++    process_proposal_count: Mapped[float | None] = mapped_column(Float)
++    query_sum_sec: Mapped[float | None] = mapped_column(Float)
++    query_count: Mapped[float | None] = mapped_column(Float)
++    flush_sum_sec: Mapped[float | None] = mapped_column(Float)
++    flush_count: Mapped[float | None] = mapped_column(Float)
++    block_processing_sum_sec: Mapped[float | None] = mapped_column(Float)
++    block_processing_count: Mapped[float | None] = mapped_column(Float)
++
++    mempool_size: Mapped[int | None] = mapped_column(Integer)
++    mempool_size_bytes: Mapped[int | None] = mapped_column(Integer)
++    block_size_bytes: Mapped[int | None] = mapped_column(Integer)
++    num_txs: Mapped[int | None] = mapped_column(Integer)
++    total_txs: Mapped[int | None] = mapped_column(Integer)
++
++    resident_memory_bytes: Mapped[int | None] = mapped_column(Integer)
++    virtual_memory_bytes: Mapped[int | None] = mapped_column(Integer)
++    open_fds: Mapped[int | None] = mapped_column(Integer)
++    max_fds: Mapped[int | None] = mapped_column(Integer)
++    goroutines: Mapped[int | None] = mapped_column(Integer)
++    threads: Mapped[int | None] = mapped_column(Integer)
++    cpu_seconds_total: Mapped[float | None] = mapped_column(Float)
++
++    heap_alloc_bytes: Mapped[int | None] = mapped_column(Integer)
++    heap_inuse_bytes: Mapped[int | None] = mapped_column(Integer)
++    heap_sys_bytes: Mapped[int | None] = mapped_column(Integer)
++    heap_objects: Mapped[int | None] = mapped_column(Integer)
++    gc_pause_p50_sec: Mapped[float | None] = mapped_column(Float)
++    gc_pause_max_sec: Mapped[float | None] = mapped_column(Float)
++
++    raw_json: Mapped[str | None] = mapped_column(Text)
++    sampled_at: Mapped[str | None] = mapped_column(String(50), index=True)
+Only in dashboard_extracted/dashboard/scripts_chainid/__pycache__: collect_validator_metrics_chainid.cpython-313.pyc
+Only in dashboard_extracted/dashboard/scripts_chainid/__pycache__: init_db_chainid.cpython-313.pyc
+Only in dashboard_extracted/dashboard/scripts_chainid/__pycache__: reset_db_chainid.cpython-313.pyc
+diff -ru dashboard_original/dashboard/scripts_chainid/collect_validator_metrics_chainid.py dashboard_extracted/dashboard/scripts_chainid/collect_validator_metrics_chainid.py
+--- dashboard_original/dashboard/scripts_chainid/collect_validator_metrics_chainid.py	2026-03-23 20:09:54.000000000 +0000
++++ dashboard_extracted/dashboard/scripts_chainid/collect_validator_metrics_chainid.py	2026-03-26 00:22:44.047861643 +0000
+@@ -6,7 +6,6 @@
+ import sqlite3
+ from datetime import datetime, timezone
+ from pathlib import Path
+-from urllib.parse import urlparse
+ 
+ import requests
+ 
+@@ -21,6 +20,83 @@
+ )
+ LABEL_RE = re.compile(r'(\w+)="([^"]*)"')
+ 
++CURRENT_SNAPSHOT_COLUMNS = [
++    "chain_id",
++    "operator_address",
++    "current_height",
++    "network_height",
++    "height_lag",
++    "last_signed_height",
++    "signed_lag",
++    "missed_blocks",
++    "peers",
++    "is_block_syncing",
++    "validator_power",
++    "validators_power",
++    "validators_count",
++    "voting_power_percent",
++    "block_interval_avg_sec",
++    "round_duration_avg_sec",
++    "step_new_height_avg_sec",
++    "step_propose_avg_sec",
++    "step_prevote_avg_sec",
++    "step_precommit_avg_sec",
++    "step_commit_avg_sec",
++    "commit_avg_sec",
++    "finalize_block_avg_sec",
++    "process_proposal_avg_sec",
++    "query_avg_sec",
++    "flush_avg_sec",
++    "block_processing_avg_ms",
++    "mempool_size",
++    "mempool_size_bytes",
++    "block_size_bytes",
++    "num_txs",
++    "total_txs",
++    "resident_memory_bytes",
++    "virtual_memory_bytes",
++    "open_fds",
++    "max_fds",
++    "goroutines",
++    "threads",
++    "cpu_seconds_total",
++    "heap_alloc_bytes",
++    "heap_inuse_bytes",
++    "heap_sys_bytes",
++    "heap_objects",
++    "gc_pause_p50_sec",
++    "gc_pause_max_sec",
++]
++
++HISTORY_ONLY_COLUMNS = [
++    "block_interval_sum_sec",
++    "block_interval_count",
++    "round_duration_sum_sec",
++    "round_duration_count",
++    "step_new_height_sum_sec",
++    "step_new_height_count",
++    "step_propose_sum_sec",
++    "step_propose_count",
++    "step_prevote_sum_sec",
++    "step_prevote_count",
++    "step_precommit_sum_sec",
++    "step_precommit_count",
++    "step_commit_sum_sec",
++    "step_commit_count",
++    "commit_sum_sec",
++    "commit_count",
++    "finalize_block_sum_sec",
++    "finalize_block_count",
++    "process_proposal_sum_sec",
++    "process_proposal_count",
++    "query_sum_sec",
++    "query_count",
++    "flush_sum_sec",
++    "flush_count",
++    "block_processing_sum_sec",
++    "block_processing_count",
++]
++
+ 
+ def utc_now_iso() -> str:
+     return datetime.now(timezone.utc).isoformat()
+@@ -101,6 +177,108 @@
+         )
+         """
+     )
++    conn.execute(
++        """
++        CREATE TABLE IF NOT EXISTS validator_metrics_history (
++            id INTEGER PRIMARY KEY AUTOINCREMENT,
++            validator_id INTEGER NOT NULL,
++            chain_id TEXT,
++            operator_address TEXT,
++            metrics_url TEXT,
++
++            fetch_ok INTEGER DEFAULT 0,
++            fetch_error TEXT,
++
++            current_height INTEGER,
++            network_height INTEGER,
++            height_lag INTEGER,
++
++            last_signed_height INTEGER,
++            signed_lag INTEGER,
++            missed_blocks INTEGER,
++
++            peers INTEGER,
++            is_block_syncing INTEGER,
++
++            validator_power INTEGER,
++            validators_power INTEGER,
++            validators_count INTEGER,
++            voting_power_percent REAL,
++
++            block_interval_avg_sec REAL,
++            round_duration_avg_sec REAL,
++            step_new_height_avg_sec REAL,
++            step_propose_avg_sec REAL,
++            step_prevote_avg_sec REAL,
++            step_precommit_avg_sec REAL,
++            step_commit_avg_sec REAL,
++
++            commit_avg_sec REAL,
++            finalize_block_avg_sec REAL,
++            process_proposal_avg_sec REAL,
++            query_avg_sec REAL,
++            flush_avg_sec REAL,
++            block_processing_avg_ms REAL,
++
++            block_interval_sum_sec REAL,
++            block_interval_count REAL,
++            round_duration_sum_sec REAL,
++            round_duration_count REAL,
++            step_new_height_sum_sec REAL,
++            step_new_height_count REAL,
++            step_propose_sum_sec REAL,
++            step_propose_count REAL,
++            step_prevote_sum_sec REAL,
++            step_prevote_count REAL,
++            step_precommit_sum_sec REAL,
++            step_precommit_count REAL,
++            step_commit_sum_sec REAL,
++            step_commit_count REAL,
++            commit_sum_sec REAL,
++            commit_count REAL,
++            finalize_block_sum_sec REAL,
++            finalize_block_count REAL,
++            process_proposal_sum_sec REAL,
++            process_proposal_count REAL,
++            query_sum_sec REAL,
++            query_count REAL,
++            flush_sum_sec REAL,
++            flush_count REAL,
++            block_processing_sum_sec REAL,
++            block_processing_count REAL,
++
++            mempool_size INTEGER,
++            mempool_size_bytes INTEGER,
++            block_size_bytes INTEGER,
++            num_txs INTEGER,
++            total_txs INTEGER,
++
++            resident_memory_bytes INTEGER,
++            virtual_memory_bytes INTEGER,
++            open_fds INTEGER,
++            max_fds INTEGER,
++            goroutines INTEGER,
++            threads INTEGER,
++            cpu_seconds_total REAL,
++
++            heap_alloc_bytes INTEGER,
++            heap_inuse_bytes INTEGER,
++            heap_sys_bytes INTEGER,
++            heap_objects INTEGER,
++            gc_pause_p50_sec REAL,
++            gc_pause_max_sec REAL,
++
++            raw_json TEXT,
++            sampled_at TEXT
++        )
++        """
++    )
++    conn.execute(
++        "CREATE INDEX IF NOT EXISTS ix_validator_metrics_history_validator_sampled ON validator_metrics_history (validator_id, sampled_at)"
++    )
++    conn.execute(
++        "CREATE INDEX IF NOT EXISTS ix_validator_metrics_history_chain_sampled ON validator_metrics_history (chain_id, sampled_at)"
++    )
+     conn.commit()
+ 
+ 
+@@ -199,17 +377,27 @@
+     return fallback_operator
+ 
+ 
+-def get_step_avg(index: dict[str, list[dict]], chain_id: str, step: str):
+-    return avg(
+-        find_metric_value(index, "cometbft_consensus_step_duration_seconds_sum", {"chain_id": chain_id, "step": step}),
+-        find_metric_value(index, "cometbft_consensus_step_duration_seconds_count", {"chain_id": chain_id, "step": step}),
++def get_sum_count(index: dict[str, list[dict]], sum_metric: str, count_metric: str, labels: dict[str, str] | None = None):
++    sum_value = find_metric_value(index, sum_metric, labels)
++    count_value = find_metric_value(index, count_metric, labels)
++    return sum_value, count_value, avg(sum_value, count_value)
++
++
++def get_step_triplet(index: dict[str, list[dict]], chain_id: str, step: str):
++    return get_sum_count(
++        index,
++        "cometbft_consensus_step_duration_seconds_sum",
++        "cometbft_consensus_step_duration_seconds_count",
++        {"chain_id": chain_id, "step": step},
+     )
+ 
+ 
+-def get_abci_avg(index: dict[str, list[dict]], chain_id: str, method: str):
+-    return avg(
+-        find_metric_value(index, "cometbft_abci_connection_method_timing_seconds_sum", {"chain_id": chain_id, "method": method, "type": "sync"}),
+-        find_metric_value(index, "cometbft_abci_connection_method_timing_seconds_count", {"chain_id": chain_id, "method": method, "type": "sync"}),
++def get_abci_triplet(index: dict[str, list[dict]], chain_id: str, method: str):
++    return get_sum_count(
++        index,
++        "cometbft_abci_connection_method_timing_seconds_sum",
++        "cometbft_abci_connection_method_timing_seconds_count",
++        {"chain_id": chain_id, "method": method, "type": "sync"},
+     )
+ 
+ 
+@@ -243,21 +431,10 @@
+     validator_power = None
+ 
+     if chain_id and operator_address:
+-        last_signed_height = find_metric_value(
+-            index,
+-            "cometbft_consensus_validator_last_signed_height",
+-            {"chain_id": chain_id, "validator_address": operator_address},
+-        )
+-        missed_blocks = find_metric_value(
+-            index,
+-            "cometbft_consensus_validator_missed_blocks",
+-            {"chain_id": chain_id, "validator_address": operator_address},
+-        )
+-        validator_power = find_metric_value(
+-            index,
+-            "cometbft_consensus_validator_power",
+-            {"chain_id": chain_id, "validator_address": operator_address},
+-        )
++        metric_labels = {"chain_id": chain_id, "validator_address": operator_address}
++        last_signed_height = find_metric_value(index, "cometbft_consensus_validator_last_signed_height", metric_labels)
++        missed_blocks = find_metric_value(index, "cometbft_consensus_validator_missed_blocks", metric_labels)
++        validator_power = find_metric_value(index, "cometbft_consensus_validator_power", metric_labels)
+ 
+     validators_power = find_metric_value(index, "cometbft_consensus_validators_power", {"chain_id": chain_id}) if chain_id else None
+     validators_count = find_metric_value(index, "cometbft_consensus_validators", {"chain_id": chain_id}) if chain_id else None
+@@ -274,12 +451,65 @@
+     if validator_power is not None and validators_power not in (None, 0):
+         voting_power_percent = (float(validator_power) / float(validators_power)) * 100.0
+ 
+-    block_processing_avg_sec = (
+-        avg(
+-            find_metric_value(index, "cometbft_state_block_processing_time_sum", {"chain_id": chain_id}),
+-            find_metric_value(index, "cometbft_state_block_processing_time_count", {"chain_id": chain_id}),
++    block_interval_sum_sec, block_interval_count, block_interval_avg_sec = (
++        get_sum_count(
++            index,
++            "cometbft_consensus_block_interval_seconds_sum",
++            "cometbft_consensus_block_interval_seconds_count",
++            {"chain_id": chain_id},
++        )
++        if chain_id else (None, None, None)
++    )
++    round_duration_sum_sec, round_duration_count, round_duration_avg_sec = (
++        get_sum_count(
++            index,
++            "cometbft_consensus_round_duration_seconds_sum",
++            "cometbft_consensus_round_duration_seconds_count",
++            {"chain_id": chain_id},
+         )
+-        if chain_id else None
++        if chain_id else (None, None, None)
++    )
++
++    step_new_height_sum_sec, step_new_height_count, step_new_height_avg_sec = (
++        get_step_triplet(index, chain_id, "NewHeight") if chain_id else (None, None, None)
++    )
++    step_propose_sum_sec, step_propose_count, step_propose_avg_sec = (
++        get_step_triplet(index, chain_id, "Propose") if chain_id else (None, None, None)
++    )
++    step_prevote_sum_sec, step_prevote_count, step_prevote_avg_sec = (
++        get_step_triplet(index, chain_id, "Prevote") if chain_id else (None, None, None)
++    )
++    step_precommit_sum_sec, step_precommit_count, step_precommit_avg_sec = (
++        get_step_triplet(index, chain_id, "Precommit") if chain_id else (None, None, None)
++    )
++    step_commit_sum_sec, step_commit_count, step_commit_avg_sec = (
++        get_step_triplet(index, chain_id, "Commit") if chain_id else (None, None, None)
++    )
++
++    commit_sum_sec, commit_count, commit_avg_sec = (
++        get_abci_triplet(index, chain_id, "commit") if chain_id else (None, None, None)
++    )
++    finalize_block_sum_sec, finalize_block_count, finalize_block_avg_sec = (
++        get_abci_triplet(index, chain_id, "finalize_block") if chain_id else (None, None, None)
++    )
++    process_proposal_sum_sec, process_proposal_count, process_proposal_avg_sec = (
++        get_abci_triplet(index, chain_id, "process_proposal") if chain_id else (None, None, None)
++    )
++    query_sum_sec, query_count, query_avg_sec = (
++        get_abci_triplet(index, chain_id, "query") if chain_id else (None, None, None)
++    )
++    flush_sum_sec, flush_count, flush_avg_sec = (
++        get_abci_triplet(index, chain_id, "flush") if chain_id else (None, None, None)
++    )
++
++    block_processing_sum_sec, block_processing_count, block_processing_avg_sec = (
++        get_sum_count(
++            index,
++            "cometbft_state_block_processing_time_sum",
++            "cometbft_state_block_processing_time_count",
++            {"chain_id": chain_id},
++        )
++        if chain_id else (None, None, None)
+     )
+ 
+     gc_p50, gc_pmax = extract_gc_quantiles(index)
+@@ -299,25 +529,45 @@
+         "validators_power": int(validators_power) if validators_power is not None else None,
+         "validators_count": int(validators_count) if validators_count is not None else None,
+         "voting_power_percent": voting_power_percent,
+-        "block_interval_avg_sec": avg(
+-            find_metric_value(index, "cometbft_consensus_block_interval_seconds_sum", {"chain_id": chain_id}) if chain_id else None,
+-            find_metric_value(index, "cometbft_consensus_block_interval_seconds_count", {"chain_id": chain_id}) if chain_id else None,
+-        ),
+-        "round_duration_avg_sec": avg(
+-            find_metric_value(index, "cometbft_consensus_round_duration_seconds_sum", {"chain_id": chain_id}) if chain_id else None,
+-            find_metric_value(index, "cometbft_consensus_round_duration_seconds_count", {"chain_id": chain_id}) if chain_id else None,
+-        ),
+-        "step_new_height_avg_sec": get_step_avg(index, chain_id, "NewHeight") if chain_id else None,
+-        "step_propose_avg_sec": get_step_avg(index, chain_id, "Propose") if chain_id else None,
+-        "step_prevote_avg_sec": get_step_avg(index, chain_id, "Prevote") if chain_id else None,
+-        "step_precommit_avg_sec": get_step_avg(index, chain_id, "Precommit") if chain_id else None,
+-        "step_commit_avg_sec": get_step_avg(index, chain_id, "Commit") if chain_id else None,
+-        "commit_avg_sec": get_abci_avg(index, chain_id, "commit") if chain_id else None,
+-        "finalize_block_avg_sec": get_abci_avg(index, chain_id, "finalize_block") if chain_id else None,
+-        "process_proposal_avg_sec": get_abci_avg(index, chain_id, "process_proposal") if chain_id else None,
+-        "query_avg_sec": get_abci_avg(index, chain_id, "query") if chain_id else None,
+-        "flush_avg_sec": get_abci_avg(index, chain_id, "flush") if chain_id else None,
++        "block_interval_avg_sec": block_interval_avg_sec,
++        "round_duration_avg_sec": round_duration_avg_sec,
++        "step_new_height_avg_sec": step_new_height_avg_sec,
++        "step_propose_avg_sec": step_propose_avg_sec,
++        "step_prevote_avg_sec": step_prevote_avg_sec,
++        "step_precommit_avg_sec": step_precommit_avg_sec,
++        "step_commit_avg_sec": step_commit_avg_sec,
++        "commit_avg_sec": commit_avg_sec,
++        "finalize_block_avg_sec": finalize_block_avg_sec,
++        "process_proposal_avg_sec": process_proposal_avg_sec,
++        "query_avg_sec": query_avg_sec,
++        "flush_avg_sec": flush_avg_sec,
+         "block_processing_avg_ms": block_processing_avg_sec * 1000.0 if block_processing_avg_sec is not None else None,
++        "block_interval_sum_sec": block_interval_sum_sec,
++        "block_interval_count": block_interval_count,
++        "round_duration_sum_sec": round_duration_sum_sec,
++        "round_duration_count": round_duration_count,
++        "step_new_height_sum_sec": step_new_height_sum_sec,
++        "step_new_height_count": step_new_height_count,
++        "step_propose_sum_sec": step_propose_sum_sec,
++        "step_propose_count": step_propose_count,
++        "step_prevote_sum_sec": step_prevote_sum_sec,
++        "step_prevote_count": step_prevote_count,
++        "step_precommit_sum_sec": step_precommit_sum_sec,
++        "step_precommit_count": step_precommit_count,
++        "step_commit_sum_sec": step_commit_sum_sec,
++        "step_commit_count": step_commit_count,
++        "commit_sum_sec": commit_sum_sec,
++        "commit_count": commit_count,
++        "finalize_block_sum_sec": finalize_block_sum_sec,
++        "finalize_block_count": finalize_block_count,
++        "process_proposal_sum_sec": process_proposal_sum_sec,
++        "process_proposal_count": process_proposal_count,
++        "query_sum_sec": query_sum_sec,
++        "query_count": query_count,
++        "flush_sum_sec": flush_sum_sec,
++        "flush_count": flush_count,
++        "block_processing_sum_sec": block_processing_sum_sec,
++        "block_processing_count": block_processing_count,
+         "mempool_size": find_metric_value(index, "cometbft_mempool_size", {"chain_id": chain_id}) if chain_id else None,
+         "mempool_size_bytes": find_metric_value(index, "cometbft_mempool_size_bytes", {"chain_id": chain_id}) if chain_id else None,
+         "block_size_bytes": find_metric_value(index, "cometbft_consensus_block_size_bytes", {"chain_id": chain_id}) if chain_id else None,
+@@ -345,89 +595,77 @@
+     return response.text
+ 
+ 
+-def upsert_metrics(conn: sqlite3.Connection, validator_id: int, metrics_url: str, snapshot: dict, fetch_ok: int, fetch_error: str | None, raw_json: str):
++def upsert_current_metrics(
++    conn: sqlite3.Connection,
++    validator_id: int,
++    metrics_url: str,
++    snapshot: dict,
++    fetch_ok: int,
++    fetch_error: str | None,
++    raw_json: str,
++):
++    insert_columns = [
++        "validator_id",
++        "chain_id",
++        "operator_address",
++        "metrics_url",
++        "fetch_ok",
++        "fetch_error",
++        *CURRENT_SNAPSHOT_COLUMNS,
++        "raw_json",
++        "updated_at",
++    ]
++    update_columns = [col for col in insert_columns if col != "validator_id"]
++    placeholders = ", ".join(["?"] * len(insert_columns))
++
+     conn.execute(
+-        """
+-        INSERT INTO validator_metrics_current (
+-            validator_id, chain_id, operator_address, metrics_url,
+-            fetch_ok, fetch_error,
+-            current_height, network_height, height_lag,
+-            last_signed_height, signed_lag, missed_blocks,
+-            peers, is_block_syncing,
+-            validator_power, validators_power, validators_count, voting_power_percent,
+-            block_interval_avg_sec, round_duration_avg_sec,
+-            step_new_height_avg_sec, step_propose_avg_sec, step_prevote_avg_sec, step_precommit_avg_sec, step_commit_avg_sec,
+-            commit_avg_sec, finalize_block_avg_sec, process_proposal_avg_sec, query_avg_sec, flush_avg_sec, block_processing_avg_ms,
+-            mempool_size, mempool_size_bytes, block_size_bytes, num_txs, total_txs,
+-            resident_memory_bytes, virtual_memory_bytes, open_fds, max_fds, goroutines, threads, cpu_seconds_total,
+-            heap_alloc_bytes, heap_inuse_bytes, heap_sys_bytes, heap_objects, gc_pause_p50_sec, gc_pause_max_sec,
+-            raw_json, updated_at
+-        ) VALUES (
+-            ?, ?, ?, ?,
+-            ?, ?,
+-            ?, ?, ?,
+-            ?, ?, ?,
+-            ?, ?,
+-            ?, ?, ?, ?,
+-            ?, ?,
+-            ?, ?, ?, ?, ?,
+-            ?, ?, ?, ?, ?, ?,
+-            ?, ?, ?, ?, ?,
+-            ?, ?, ?, ?, ?, ?, ?,
+-            ?, ?, ?, ?, ?, ?,
+-            ?, ?
+-        )
++        f"""
++        INSERT INTO validator_metrics_current ({", ".join(insert_columns)})
++        VALUES ({placeholders})
+         ON CONFLICT(validator_id) DO UPDATE SET
+-            chain_id=excluded.chain_id,
+-            operator_address=excluded.operator_address,
+-            metrics_url=excluded.metrics_url,
+-            fetch_ok=excluded.fetch_ok,
+-            fetch_error=excluded.fetch_error,
+-            current_height=excluded.current_height,
+-            network_height=excluded.network_height,
+-            height_lag=excluded.height_lag,
+-            last_signed_height=excluded.last_signed_height,
+-            signed_lag=excluded.signed_lag,
+-            missed_blocks=excluded.missed_blocks,
+-            peers=excluded.peers,
+-            is_block_syncing=excluded.is_block_syncing,
+-            validator_power=excluded.validator_power,
+-            validators_power=excluded.validators_power,
+-            validators_count=excluded.validators_count,
+-            voting_power_percent=excluded.voting_power_percent,
+-            block_interval_avg_sec=excluded.block_interval_avg_sec,
+-            round_duration_avg_sec=excluded.round_duration_avg_sec,
+-            step_new_height_avg_sec=excluded.step_new_height_avg_sec,
+-            step_propose_avg_sec=excluded.step_propose_avg_sec,
+-            step_prevote_avg_sec=excluded.step_prevote_avg_sec,
+-            step_precommit_avg_sec=excluded.step_precommit_avg_sec,
+-            step_commit_avg_sec=excluded.step_commit_avg_sec,
+-            commit_avg_sec=excluded.commit_avg_sec,
+-            finalize_block_avg_sec=excluded.finalize_block_avg_sec,
+-            process_proposal_avg_sec=excluded.process_proposal_avg_sec,
+-            query_avg_sec=excluded.query_avg_sec,
+-            flush_avg_sec=excluded.flush_avg_sec,
+-            block_processing_avg_ms=excluded.block_processing_avg_ms,
+-            mempool_size=excluded.mempool_size,
+-            mempool_size_bytes=excluded.mempool_size_bytes,
+-            block_size_bytes=excluded.block_size_bytes,
+-            num_txs=excluded.num_txs,
+-            total_txs=excluded.total_txs,
+-            resident_memory_bytes=excluded.resident_memory_bytes,
+-            virtual_memory_bytes=excluded.virtual_memory_bytes,
+-            open_fds=excluded.open_fds,
+-            max_fds=excluded.max_fds,
+-            goroutines=excluded.goroutines,
+-            threads=excluded.threads,
+-            cpu_seconds_total=excluded.cpu_seconds_total,
+-            heap_alloc_bytes=excluded.heap_alloc_bytes,
+-            heap_inuse_bytes=excluded.heap_inuse_bytes,
+-            heap_sys_bytes=excluded.heap_sys_bytes,
+-            heap_objects=excluded.heap_objects,
+-            gc_pause_p50_sec=excluded.gc_pause_p50_sec,
+-            gc_pause_max_sec=excluded.gc_pause_max_sec,
+-            raw_json=excluded.raw_json,
+-            updated_at=excluded.updated_at
++            {", ".join(f"{col}=excluded.{col}" for col in update_columns)}
++        """,
++        (
++            validator_id,
++            snapshot.get("chain_id"),
++            snapshot.get("operator_address"),
++            metrics_url,
++            fetch_ok,
++            fetch_error,
++            *(snapshot.get(col) for col in CURRENT_SNAPSHOT_COLUMNS),
++            raw_json,
++            utc_now_iso(),
++        ),
++    )
++
++
++def insert_history_metrics(
++    conn: sqlite3.Connection,
++    validator_id: int,
++    metrics_url: str,
++    snapshot: dict,
++    fetch_ok: int,
++    fetch_error: str | None,
++    raw_json: str,
++):
++    insert_columns = [
++        "validator_id",
++        "chain_id",
++        "operator_address",
++        "metrics_url",
++        "fetch_ok",
++        "fetch_error",
++        *CURRENT_SNAPSHOT_COLUMNS,
++        *HISTORY_ONLY_COLUMNS,
++        "raw_json",
++        "sampled_at",
++    ]
++    placeholders = ", ".join(["?"] * len(insert_columns))
++
++    conn.execute(
++        f"""
++        INSERT INTO validator_metrics_history ({", ".join(insert_columns)})
++        VALUES ({placeholders})
+         """,
+         (
+             validator_id,
+@@ -436,55 +674,27 @@
+             metrics_url,
+             fetch_ok,
+             fetch_error,
+-            snapshot.get("current_height"),
+-            snapshot.get("network_height"),
+-            snapshot.get("height_lag"),
+-            snapshot.get("last_signed_height"),
+-            snapshot.get("signed_lag"),
+-            snapshot.get("missed_blocks"),
+-            snapshot.get("peers"),
+-            snapshot.get("is_block_syncing"),
+-            snapshot.get("validator_power"),
+-            snapshot.get("validators_power"),
+-            snapshot.get("validators_count"),
+-            snapshot.get("voting_power_percent"),
+-            snapshot.get("block_interval_avg_sec"),
+-            snapshot.get("round_duration_avg_sec"),
+-            snapshot.get("step_new_height_avg_sec"),
+-            snapshot.get("step_propose_avg_sec"),
+-            snapshot.get("step_prevote_avg_sec"),
+-            snapshot.get("step_precommit_avg_sec"),
+-            snapshot.get("step_commit_avg_sec"),
+-            snapshot.get("commit_avg_sec"),
+-            snapshot.get("finalize_block_avg_sec"),
+-            snapshot.get("process_proposal_avg_sec"),
+-            snapshot.get("query_avg_sec"),
+-            snapshot.get("flush_avg_sec"),
+-            snapshot.get("block_processing_avg_ms"),
+-            snapshot.get("mempool_size"),
+-            snapshot.get("mempool_size_bytes"),
+-            snapshot.get("block_size_bytes"),
+-            snapshot.get("num_txs"),
+-            snapshot.get("total_txs"),
+-            snapshot.get("resident_memory_bytes"),
+-            snapshot.get("virtual_memory_bytes"),
+-            snapshot.get("open_fds"),
+-            snapshot.get("max_fds"),
+-            snapshot.get("goroutines"),
+-            snapshot.get("threads"),
+-            snapshot.get("cpu_seconds_total"),
+-            snapshot.get("heap_alloc_bytes"),
+-            snapshot.get("heap_inuse_bytes"),
+-            snapshot.get("heap_sys_bytes"),
+-            snapshot.get("heap_objects"),
+-            snapshot.get("gc_pause_p50_sec"),
+-            snapshot.get("gc_pause_max_sec"),
++            *(snapshot.get(col) for col in CURRENT_SNAPSHOT_COLUMNS),
++            *(snapshot.get(col) for col in HISTORY_ONLY_COLUMNS),
+             raw_json,
+             utc_now_iso(),
+         ),
+     )
+ 
+ 
++def persist_metrics_sample(
++    conn: sqlite3.Connection,
++    validator_id: int,
++    metrics_url: str,
++    snapshot: dict,
++    fetch_ok: int,
++    fetch_error: str | None,
++):
++    raw_json = json.dumps(snapshot, ensure_ascii=False)
++    upsert_current_metrics(conn, validator_id, metrics_url, snapshot, fetch_ok, fetch_error, raw_json)
++    insert_history_metrics(conn, validator_id, metrics_url, snapshot, fetch_ok, fetch_error, raw_json)
++
++
+ def main():
+     conn = db_connect()
+     ensure_tables(conn)
+@@ -514,14 +724,13 @@
+ 
+         if not metrics_url:
+             fail += 1
+-            upsert_metrics(
++            persist_metrics_sample(
+                 conn,
+                 validator_id,
+                 row["metrics_url"] or "",
+                 {"chain_id": chain_id, "operator_address": operator_address},
+                 0,
+                 "empty metrics_url",
+-                "{}",
+             )
+             conn.commit()
+             continue
+@@ -531,14 +740,13 @@
+             rows = parse_prometheus_text(text)
+             index = rows_to_index(rows)
+             snapshot = build_snapshot(index, chain_id, operator_address)
+-            raw_json = json.dumps(snapshot, ensure_ascii=False)
+-            upsert_metrics(conn, validator_id, metrics_url, snapshot, 1, None, raw_json)
++            persist_metrics_sample(conn, validator_id, metrics_url, snapshot, 1, None)
+             conn.commit()
+             ok += 1
+             print(f"[OK] {chain_id}")
+         except Exception as e:
+             snapshot = {"chain_id": chain_id, "operator_address": operator_address}
+-            upsert_metrics(conn, validator_id, metrics_url, snapshot, 0, str(e), json.dumps(snapshot, ensure_ascii=False))
++            persist_metrics_sample(conn, validator_id, metrics_url, snapshot, 0, str(e))
+             conn.commit()
+             fail += 1
+             print(f"[ERR] {chain_id} | {e}")
+diff -ru dashboard_original/dashboard/scripts_chainid/init_db_chainid.py dashboard_extracted/dashboard/scripts_chainid/init_db_chainid.py
+--- dashboard_original/dashboard/scripts_chainid/init_db_chainid.py	2026-03-22 23:39:25.000000000 +0000
++++ dashboard_extracted/dashboard/scripts_chainid/init_db_chainid.py	2026-03-26 00:22:44.026591269 +0000
+@@ -19,6 +19,7 @@
+     PublicRpcEndpoint,
+     Validator,
+     ValidatorMetricsCurrent,
++    ValidatorMetricsHistory,
+ )
+ 
+ 
+diff -ru dashboard_original/dashboard/scripts_chainid/reset_db_chainid.py dashboard_extracted/dashboard/scripts_chainid/reset_db_chainid.py
+--- dashboard_original/dashboard/scripts_chainid/reset_db_chainid.py	2026-03-22 23:39:49.000000000 +0000
++++ dashboard_extracted/dashboard/scripts_chainid/reset_db_chainid.py	2026-03-26 00:22:44.036007740 +0000
+@@ -19,8 +19,10 @@
+     PublicRpcEndpoint,
+     Validator,
+     ValidatorMetricsCurrent,
++    ValidatorMetricsHistory,
+ )
+ 
++
+ def main() -> None:
+     Base.metadata.drop_all(bind=engine)
+     Base.metadata.create_all(bind=engine)
