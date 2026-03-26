@@ -318,6 +318,11 @@ def dashboard(request: Request):
     return resp
 
 
+@router.get("/dashboard/rewards")
+def dashboard_rewards():
+    return RedirectResponse(url="/dashboard", status_code=307)
+
+
 @router.get("/dashboard/public-rpc")
 def dashboard_public_rpc(request: Request):
     conn = db_connect()
