@@ -39,6 +39,10 @@ class ValidatorStatusCurrent(Base):
     network_bonded_tokens_raw: Mapped[str | None] = mapped_column(Text)
     network_bonded_tokens_display: Mapped[float | None] = mapped_column(Float)
     voting_power_percent: Mapped[float | None] = mapped_column(Float)
+    annual_provisions_raw: Mapped[str | None] = mapped_column(Text)
+    apr_percent: Mapped[float | None] = mapped_column(Float, index=True)
+    annual_provisions_raw: Mapped[str | None] = mapped_column(Text)
+    apr_percent: Mapped[float | None] = mapped_column(Float, index=True)
 
     commission_rate_percent: Mapped[float | None] = mapped_column(Float)
     commission_max_rate_percent: Mapped[float | None] = mapped_column(Float)
@@ -100,6 +104,10 @@ class ValidatorStatusHistory(Base):
     network_bonded_tokens_raw: Mapped[str | None] = mapped_column(Text)
     network_bonded_tokens_display: Mapped[float | None] = mapped_column(Float)
     voting_power_percent: Mapped[float | None] = mapped_column(Float)
+    annual_provisions_raw: Mapped[str | None] = mapped_column(Text)
+    apr_percent: Mapped[float | None] = mapped_column(Float, index=True)
+    annual_provisions_raw: Mapped[str | None] = mapped_column(Text)
+    apr_percent: Mapped[float | None] = mapped_column(Float, index=True)
 
     commission_rate_percent: Mapped[float | None] = mapped_column(Float)
     commission_max_rate_percent: Mapped[float | None] = mapped_column(Float)

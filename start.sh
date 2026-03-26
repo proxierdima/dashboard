@@ -4,3 +4,4 @@ python3 -m scripts_chainid.load_posthuman_endpoints_chainid
 python3 -m scripts_chainid.collect_validator_metrics_chainid
 python3 -m scripts_chainid.governance_collector
 python3 -m scripts_chainid.public_rpc_collector
+python3 -m scripts_chainid.validator_status_collector

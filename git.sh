@@ -36,7 +36,6 @@ venv/
 *.sqlite
 *.sqlite3
 *.log
-config
 *.rej
 .DS_Store
 GITIGNORE

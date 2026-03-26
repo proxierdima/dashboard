@@ -35,48 +35,52 @@
             <th>Status</th>
             <th>Network</th>
             <th>Moniker</th>
-            <th>Valoper</th>
-            <th>Lag</th>
-            <th>Peers</th>
-            <th>Missed</th>
+            <th>Voting Power%</th>
+            <th>Total Bonded Tokens</th>
+            <th>Commission%</th>
+            <th>Self Bonded</th>
+            <th>Jailed</th>
+            <th>APR</th>
             <th>Updated</th>
             <th>Error</th>
         </tr>
         </thead>
         <tbody>
         {% for row in rows %}
-            <tr class="validator-row {{ row.overall_status }}" data-validator-id="{{ row.validator_id }}">
-                <td>
-                    <div class="status-cell">
-                        <span class="status-dot {{ row.overall_status }}"></span>
-                        <span class="status-pill {{ row.overall_status }}">{{ row.overall_status|upper }}</span>
+        <tr class="validator-row {{ row.overall_status }}" data-validator-id="{{ row.validator_id }}">
+            <td>
+                <div class="status-cell">
+                    <span class="status-dot {{ row.overall_status }}"></span>
+                    <span class="status-pill {{ row.overall_status }}">{{ row.overall_status|upper }}</span>
+                </div>
+            </td>
+            <td>
+                <div class="network-name">{{ row.chain_display }}</div>
+            </td>
+            <td>
+                <div class="moniker-main">{{ row.moniker }}</div>
+            </td>
+            <td class="num-cell">{{ row.voting_power_display }}</td>
+            <td>{{ row.total_bonded_tokens_display }}</td>
+            <td class="num-cell">{{ row.commission_rate_display }}</td>
+            <td>{{ row.self_bonded_display_fmt }}</td>
+            <td class="num-cell">{{ row.jailed_display }}</td>
+            <td class="num-cell">{{ row.apr_display }}</td>
+            <td class="updated-cell">{{ row.updated_at_fmt }}</td>
+            <td class="error-cell">
+                {% if row.fetch_error %}
+                    <div class="tooltip tooltip-left">
+                        <span class="error-icon">⚠ </span>
+                        <div class="tooltip-text">{{ row.fetch_error }}</div>
                     </div>
-                </td>
-                <td>
-                    <div class="network-name">{{ row.chain_display }}</div>
-                </td>
-                <td>
-                    <div class="moniker-main">{{ row.moniker }}</div>
-                </td>
-                <td class="mono wrap-anywhere small-mono">{{ row.valoper_address }}</td>
-                <td class="num-cell">{{ row.height_lag_display }}</td>
-                <td class="num-cell">{{ row.peers_display }}</td>
-                <td class="num-cell">{{ row.missed_blocks_display }}</td>
-                <td class="updated-cell">{{ row.updated_at_fmt }}</td>
-                <td class="error-cell">
-                    {% if row.fetch_error %}
-                        <div class="tooltip tooltip-left">
-                            <span class="error-icon">⚠</span>
-                            <div class="tooltip-text">{{ row.fetch_error }}</div>
-                        </div>
-                    {% else %}
-                        <span class="muted center-dash">—</span>
-                    {% endif %}
-                </td>
-            </tr>
+                {% else %}
+                    <span class="muted center-dash">—</span>
+                {% endif %}
+            </td>
+        </tr>
 
             <tr class="details-row hidden" id="details-row-{{ row.validator_id }}">
-                <td colspan="9" class="details-cell">
+                <td colspan="11" class="details-cell">
                     <div class="inline-detail-panel compact-detail-panel">
                         <div class="inline-detail-head">
                             <div>

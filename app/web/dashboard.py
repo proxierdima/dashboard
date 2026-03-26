@@ -59,6 +59,16 @@ def format_number(value, decimals: int = 2) -> str:
     return f"{num:.{decimals}f}".rstrip("0").rstrip(".")
 
 
+def format_amount_fixed(value, decimals: int = 2) -> str:
+    if value in (None, ""):
+        return "—"
+    try:
+        num = float(value)
+    except Exception:
+        return str(value)
+    return f"{num:,.{decimals}f}".replace(",", " ")
+
+
 def format_bytes_mb(value):
     if value in (None, "", 0, "0"):
         return "—"
@@ -98,14 +108,13 @@ def classify_row(fetch_ok, height_lag):
 
 
 def get_dashboard_totals(conn):
-    # Totals are counted by validators with latest metrics, not by network_status_current.
     return {
         "networks": get_scalar(
             conn,
             """
-            SELECT COUNT(DISTINCT chain_id)
-            FROM validators
-            WHERE COALESCE(is_enabled, 1) = 1
+            SELECT COUNT(DISTINCT v.chain_id)
+            FROM validators v
+            WHERE COALESCE(v.is_enabled, 1) = 1
             """,
         ),
         "ok": get_scalar(
@@ -113,10 +122,9 @@ def get_dashboard_totals(conn):
             """
             SELECT COUNT(*)
             FROM validators v
-            LEFT JOIN validator_metrics_current vm ON vm.validator_id = v.id
+            LEFT JOIN validator_status_current vs ON vs.validator_id = v.id
             WHERE COALESCE(v.is_enabled, 1) = 1
-              AND COALESCE(vm.fetch_ok, 0) = 1
-              AND COALESCE(vm.height_lag, 0) <= 5
+              AND COALESCE(vs.status_level, 'critical') = 'ok'
             """,
         ),
         "warning": get_scalar(
@@ -124,10 +132,9 @@ def get_dashboard_totals(conn):
             """
             SELECT COUNT(*)
             FROM validators v
-            LEFT JOIN validator_metrics_current vm ON vm.validator_id = v.id
+            LEFT JOIN validator_status_current vs ON vs.validator_id = v.id
             WHERE COALESCE(v.is_enabled, 1) = 1
-              AND COALESCE(vm.fetch_ok, 0) = 1
-              AND COALESCE(vm.height_lag, 0) > 5
+              AND COALESCE(vs.status_level, 'critical') = 'warning'
             """,
         ),
         "critical": get_scalar(
@@ -135,9 +142,9 @@ def get_dashboard_totals(conn):
             """
             SELECT COUNT(*)
             FROM validators v
-            LEFT JOIN validator_metrics_current vm ON vm.validator_id = v.id
+            LEFT JOIN validator_status_current vs ON vs.validator_id = v.id
             WHERE COALESCE(v.is_enabled, 1) = 1
-              AND COALESCE(vm.fetch_ok, 0) = 0
+              AND COALESCE(vs.status_level, 'critical') = 'critical'
             """,
         ),
         "alerts": get_scalar(
@@ -145,12 +152,9 @@ def get_dashboard_totals(conn):
             """
             SELECT COUNT(*)
             FROM validators v
-            LEFT JOIN validator_metrics_current vm ON vm.validator_id = v.id
+            LEFT JOIN validator_status_current vs ON vs.validator_id = v.id
             WHERE COALESCE(v.is_enabled, 1) = 1
-              AND (
-                COALESCE(vm.fetch_ok, 0) = 0
-                OR COALESCE(vm.height_lag, 0) > 5
-              )
+              AND COALESCE(vs.status_level, 'critical') != 'ok'
             """,
         ),
     }
@@ -162,88 +166,105 @@ def get_dashboard_rows(conn):
         SELECT
             v.id AS validator_id,
             v.chain_id,
-            COALESCE(v.moniker, v.operator_address, 'unknown') AS moniker,
+            COALESCE(vs.moniker_snapshot, v.moniker, v.operator_address, 'unknown') AS moniker,
             v.operator_address AS valoper_address,
             v.delegator_address,
-            v.rpc_url,
-            v.metrics_url,
 
             n.name,
             COALESCE(n.display_name, n.name, v.chain_id) AS display_name,
-            n.chain_type,
-            n.network_type,
+            n.display_denom,
+            n.base_denom,
 
-            vm.fetch_ok,
-            vm.fetch_error,
-            vm.current_height,
-            vm.network_height,
-            vm.height_lag,
-            vm.last_signed_height,
-            vm.signed_lag,
-            vm.missed_blocks,
-            vm.peers,
-            vm.is_block_syncing,
-            vm.validator_power,
-            vm.validators_power,
-            vm.validators_count,
-            vm.voting_power_percent,
-            vm.block_interval_avg_sec,
-            vm.round_duration_avg_sec,
-            vm.step_commit_avg_sec,
-            vm.commit_avg_sec,
-            vm.finalize_block_avg_sec,
-            vm.query_avg_sec,
-            vm.mempool_size,
-            vm.block_size_bytes,
-            vm.resident_memory_bytes,
-            vm.open_fds,
-            vm.goroutines,
-            vm.cpu_seconds_total,
-            vm.gc_pause_p50_sec,
-            vm.updated_at
+            vs.fetch_ok,
+            vs.fetch_error,
+            vs.status_level,
+            vs.validator_status,
+            vs.jailed,
+
+            vs.validator_tokens_raw,
+            vs.validator_tokens_display,
+            vs.network_bonded_tokens_raw,
+            vs.network_bonded_tokens_display,
+            vs.voting_power_percent,
+            vs.apr_percent,
+
+            vs.commission_rate_percent,
+
+            vs.self_bonded_raw,
+            vs.self_bonded_display,
+            vs.self_bonded_percent,
+
+            vs.updated_at
+
         FROM validators v
-        LEFT JOIN networks n ON n.chain_id = v.chain_id
-        LEFT JOIN validator_metrics_current vm ON vm.validator_id = v.id
+        LEFT JOIN networks n
+               ON n.chain_id = v.chain_id
+        LEFT JOIN validator_status_current vs
+               ON vs.validator_id = v.id
         WHERE COALESCE(v.is_enabled, 1) = 1
         ORDER BY
-            CASE
-                WHEN COALESCE(vm.fetch_ok, 0) = 0 THEN 0
-                WHEN COALESCE(vm.height_lag, 0) > 5 THEN 1
-                ELSE 2
+            CASE COALESCE(vs.status_level, 'critical')
+                WHEN 'critical' THEN 0
+                WHEN 'warning' THEN 1
+                WHEN 'ok' THEN 2
+                ELSE 3
             END ASC,
             COALESCE(n.display_name, n.name, v.chain_id) ASC,
-            COALESCE(v.moniker, v.operator_address, 'unknown') ASC
+            COALESCE(vs.moniker_snapshot, v.moniker, v.operator_address, 'unknown') ASC
         """
     ).fetchall()
 
     result = []
     for row in rows:
         item = dict(row)
-        overall_status = classify_row(item.get("fetch_ok"), item.get("height_lag"))
+
+        overall_status = item.get("status_level") or "critical"
+        if overall_status not in {"ok", "warning", "critical"}:
+            overall_status = "critical"
+
+        denom = item.get("display_denom") or item.get("base_denom") or ""
 
         item["overall_status"] = overall_status
         item["overall_emoji"] = status_emoji(overall_status)
-        item["validator_status_display"] = "running" if int(item.get("fetch_ok") or 0) == 1 else "error"
-        item["validator_rpc_status"] = "ok" if int(item.get("fetch_ok") or 0) == 1 else "critical"
-
         item["chain_display"] = item.get("display_name") or item.get("chain_id") or "—"
         item["updated_at_fmt"] = format_utc(item.get("updated_at"))
-        item["height_lag_display"] = format_number(item.get("height_lag"), decimals=0)
-        item["current_height_display"] = format_number(item.get("current_height"), decimals=0)
-        item["network_height_display"] = format_number(item.get("network_height"), decimals=0)
-        item["missed_blocks_display"] = format_number(item.get("missed_blocks"), decimals=0)
-        item["peers_display"] = format_number(item.get("peers"), decimals=0)
-        item["resident_memory_display"] = format_bytes_mb(item.get("resident_memory_bytes"))
-        item["open_fds_display"] = format_number(item.get("open_fds"), decimals=0)
-        item["goroutines_display"] = format_number(item.get("goroutines"), decimals=0)
-        item["block_interval_display"] = format_number(item.get("block_interval_avg_sec"))
-        item["finalize_block_display"] = format_number(item.get("finalize_block_avg_sec"))
-        item["query_display"] = format_number(item.get("query_avg_sec"))
-        item["voting_power_percent_display"] = (
+
+        item["voting_power_display"] = (
             f'{float(item["voting_power_percent"]):.4f}%'
             if item.get("voting_power_percent") is not None else "—"
         )
-        item["is_block_syncing_display"] = format_yes_no(item.get("is_block_syncing"))
+
+        item["total_bonded_tokens_display"] = (
+            f'{format_amount_fixed(item.get("network_bonded_tokens_display"), 2)} {denom}'.strip()
+            if item.get("network_bonded_tokens_display") is not None else "—"
+        )
+
+        item["commission_rate_display"] = (
+            f'{float(item["commission_rate_percent"]):.2f}%'
+            if item.get("commission_rate_percent") is not None else "—"
+        )
+
+        self_bonded_value = (
+            f'{format_amount_fixed(item.get("self_bonded_display"), 2)} {denom}'.strip()
+            if item.get("self_bonded_display") is not None else "—"
+        )
+        self_bonded_pct = (
+            f'{float(item["self_bonded_percent"]):.2f}%'
+            if item.get("self_bonded_percent") is not None else None
+        )
+        item["self_bonded_display_fmt"] = (
+            f"{self_bonded_value} · {self_bonded_pct}"
+            if self_bonded_value != "—" and self_bonded_pct
+            else self_bonded_value
+        )
+
+        item["jailed_display"] = format_yes_no(item.get("jailed"))
+
+        item["apr_display"] = (
+            f'{float(item["apr_percent"]):.2f}%'
+            if item.get("apr_percent") is not None else "—"
+        )
+
         item["active_alerts_count"] = 1 if overall_status != "ok" else 0
 
         result.append(item)
