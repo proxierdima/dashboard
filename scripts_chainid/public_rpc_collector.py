@@ -17,7 +17,7 @@ from sqlalchemy import select
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.core.db import SessionLocal
-from app.models_chainid import EndpointCheck, Network, NetworkEndpoint
+from app.models_chainid import Network, NetworkEndpoint
 
 
 CHAIN_REGISTRY_DIR = Path("chain-registry")
@@ -59,14 +59,22 @@ def normalize_name(value: str | None) -> str:
     return (value or "").strip().lower()
 
 
+def latency_limit(endpoint_type: str) -> int:
+    if endpoint_type == "rpc":
+        return RPC_MAX_LATENCY_MS
+    if endpoint_type == "rest":
+        return REST_MAX_LATENCY_MS
+    if endpoint_type == "grpc":
+        return GRPC_MAX_LATENCY_MS
+    return 0
+
+
+def latency_ok(endpoint_type: str, latency_ms: int) -> bool:
+    limit = latency_limit(endpoint_type)
+    return latency_ms > 0 and limit > 0 and latency_ms <= limit
+
+
 def find_chain_json_for_network(network: Network) -> Path | None:
-    """
-    Ищем chain.json максимально надежно:
-    1) chain-registry/<directory>/chain.json
-    2) chain-registry/<name>/chain.json
-    3) chain-registry/<chain_id>/chain.json
-    4) fallback по всем chain.json и совпадению chain_id
-    """
     direct_candidates: list[Path] = []
 
     if getattr(network, "directory", None):
@@ -131,18 +139,22 @@ def extract_apis(chain_json: dict, key: str) -> list[str]:
     return out
 
 
-def latency_ok(endpoint_type: str, latency_ms: int) -> bool:
-    if latency_ms <= 0:
-        return False
+def merge_candidate_urls(existing_urls: list[str], discovered_urls: list[str]) -> list[str]:
+    """
+    Сначала проверяем уже известные URL из network_endpoints,
+    потом дополняем новыми из chain-registry.
+    """
+    merged = []
+    seen = set()
 
-    if endpoint_type == "rpc":
-        return latency_ms <= RPC_MAX_LATENCY_MS
-    if endpoint_type == "rest":
-        return latency_ms <= REST_MAX_LATENCY_MS
-    if endpoint_type == "grpc":
-        return latency_ms <= GRPC_MAX_LATENCY_MS
+    for url in existing_urls + discovered_urls:
+        url = normalize_url(url)
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        merged.append(url)
 
-    return False
+    return merged
 
 
 # ------------------------
@@ -156,7 +168,7 @@ def get_session():
     sess = getattr(_thread_local, "session", None)
     if sess is None:
         sess = requests.Session()
-        sess.headers.update({"User-Agent": "validator-dashboard-public-rpc/4.0"})
+        sess.headers.update({"User-Agent": "validator-dashboard-public-rpc/6.0"})
         adapter = requests.adapters.HTTPAdapter(
             pool_connections=100,
             pool_maxsize=100,
@@ -180,21 +192,20 @@ def check_rpc(url: str):
         latency = int((time.time() - start) * 1000)
 
         if r.status_code != 200:
-            return False, r.status_code, latency, None, None
+            return False, r.status_code, latency, None, None, f"http {r.status_code}"
 
         data = r.json()
         height = data.get("result", {}).get("sync_info", {}).get("latest_block_height")
+        chain_id_reported = data.get("result", {}).get("node_info", {}).get("network")
 
         try:
             height = int(height) if height is not None else None
         except Exception:
             height = None
 
-        chain_id_reported = data.get("result", {}).get("node_info", {}).get("network")
-
-        return True, 200, latency, height, chain_id_reported
-    except Exception:
-        return False, 0, 0, None, None
+        return True, 200, latency, height, chain_id_reported, None
+    except Exception as e:
+        return False, 0, 0, None, None, str(e)[:500]
 
 
 def check_rest(url: str):
@@ -207,10 +218,12 @@ def check_rest(url: str):
         )
         latency = int((time.time() - start) * 1000)
 
-        ok = r.status_code == 200
-        return ok, r.status_code, latency, None, None
-    except Exception:
-        return False, 0, 0, None, None
+        if r.status_code != 200:
+            return False, r.status_code, latency, None, None, f"http {r.status_code}"
+
+        return True, r.status_code, latency, None, None, None
+    except Exception as e:
+        return False, 0, 0, None, None, str(e)[:500]
 
 
 def check_grpc(url: str):
@@ -220,50 +233,64 @@ def check_grpc(url: str):
         port = parsed.port or 443
 
         if not host:
-            return False, 0, 0, None, None
+            return False, 0, 0, None, None, "invalid grpc url"
 
         start = time.time()
         with socket.create_connection((host, port), timeout=GRPC_TIMEOUT):
             latency = int((time.time() - start) * 1000)
-            return True, 0, latency, None, None
-    except Exception:
-        return False, 0, 0, None, None
+            return True, 0, latency, None, None, None
+    except Exception as e:
+        return False, 0, 0, None, None, str(e)[:500]
+
+
+def run_check(endpoint_type: str, url: str):
+    if endpoint_type == "rpc":
+        return check_rpc(url)
+    if endpoint_type == "rest":
+        return check_rest(url)
+    if endpoint_type == "grpc":
+        return check_grpc(url)
+    return False, 0, 0, None, None, "unknown endpoint_type"
 
 
 # ------------------------
-# Scan first 3 working
+# Scan chain/type
 # ------------------------
 
 def scan_first_working(chain_id: str, endpoint_type: str, urls: list[str]):
     """
-    Идем по списку по порядку и останавливаемся,
-    когда нашли первые MAX_PER_TYPE живых endpoint'ов.
+    Проверяем URL по порядку и выбираем первые MAX_PER_TYPE живых.
+    Нерабочие уже известные endpoint'ы потом будут помечены в network_endpoints.
     """
     selected = []
+    checked = []
 
     for url in urls:
-        if endpoint_type == "rpc":
-            ok, http_status, latency, remote_height, chain_id_reported = check_rpc(url)
-        elif endpoint_type == "rest":
-            ok, http_status, latency, remote_height, chain_id_reported = check_rest(url)
-        elif endpoint_type == "grpc":
-            ok, http_status, latency, remote_height, chain_id_reported = check_grpc(url)
-        else:
-            ok, http_status, latency, remote_height, chain_id_reported = False, 0, 0, None, None
+        ok, http_status, latency, remote_height, chain_id_reported, error_message = run_check(endpoint_type, url)
 
         if ok and latency_ok(endpoint_type, latency):
-            selected.append(
-                {
-                    "chain_id": chain_id,
-                    "endpoint_type": endpoint_type,
-                    "url": url,
-                    "latency_ms": latency,
-                    "http_status": http_status,
-                    "remote_height": remote_height if isinstance(remote_height, int) else None,
-                    "chain_id_reported": chain_id_reported,
-                }
-            )
+            row_status = "ok"
+        elif ok:
+            row_status = "warning"
+            error_message = f"latency {latency}ms exceeds limit {latency_limit(endpoint_type)}ms"
+        else:
+            row_status = "dead"
 
+        row = {
+            "chain_id": chain_id,
+            "endpoint_type": endpoint_type,
+            "url": url,
+            "http_status": http_status,
+            "latency_ms": latency,
+            "remote_height": remote_height if isinstance(remote_height, int) else None,
+            "chain_id_reported": chain_id_reported,
+            "error_message": error_message,
+            "status": row_status,
+        }
+        checked.append(row)
+
+        if row_status == "ok":
+            selected.append(row)
             if len(selected) >= MAX_PER_TYPE:
                 break
 
@@ -271,6 +298,7 @@ def scan_first_working(chain_id: str, endpoint_type: str, urls: list[str]):
         "chain_id": chain_id,
         "endpoint_type": endpoint_type,
         "selected": selected,
+        "checked": checked,
     }
 
 
@@ -290,12 +318,26 @@ def preload_existing_public_endpoints(db):
     rows = db.execute(
         select(NetworkEndpoint)
         .where(NetworkEndpoint.is_public == 1)
+        .order_by(
+            NetworkEndpoint.chain_id.asc(),
+            NetworkEndpoint.endpoint_type.asc(),
+            NetworkEndpoint.priority.asc(),
+            NetworkEndpoint.id.asc(),
+        )
     ).scalars().all()
 
-    cache = {}
+    cache: dict[tuple[str, str, str], NetworkEndpoint] = {}
+    by_chain_type: dict[tuple[str, str], list[str]] = {}
+
     for ep in rows:
-        cache[(ep.chain_id, ep.endpoint_type, ep.url)] = ep
-    return cache
+        url = normalize_url(ep.url)
+        if not url:
+            continue
+
+        cache[(ep.chain_id, ep.endpoint_type, url)] = ep
+        by_chain_type.setdefault((ep.chain_id, ep.endpoint_type), []).append(url)
+
+    return cache, by_chain_type
 
 
 def get_or_create_public_endpoint(
@@ -304,7 +346,7 @@ def get_or_create_public_endpoint(
     chain_id: str,
     endpoint_type: str,
     url: str,
-    priority: int,
+    priority: int | None = None,
 ):
     key = (chain_id, endpoint_type, url)
     ep = cache.get(key)
@@ -313,7 +355,7 @@ def get_or_create_public_endpoint(
     if ep is not None:
         changed = False
 
-        if ep.priority != priority:
+        if priority is not None and ep.priority != priority:
             ep.priority = priority
             changed = True
 
@@ -321,15 +363,11 @@ def get_or_create_public_endpoint(
             ep.is_public = 1
             changed = True
 
-        if ep.is_enabled != 1:
-            ep.is_enabled = 1
-            changed = True
-
         if ep.label != "public":
             ep.label = "public"
             changed = True
 
-        if ep.source != "chain-registry":
+        if not getattr(ep, "source", None):
             ep.source = "chain-registry"
             changed = True
 
@@ -347,7 +385,7 @@ def get_or_create_public_endpoint(
         endpoint_type=endpoint_type,
         label="public",
         url=url,
-        priority=priority,
+        priority=priority or 999,
         source="chain-registry",
         is_public=1,
         is_enabled=1,
@@ -362,12 +400,7 @@ def get_or_create_public_endpoint(
     return ep
 
 
-def disable_old_public_endpoints_for_type(
-    db,
-    chain_id: str,
-    endpoint_type: str,
-    keep_urls: set[str],
-):
+def reset_selected_flags_for_type(db, chain_id: str, endpoint_type: str):
     rows = db.execute(
         select(NetworkEndpoint)
         .where(NetworkEndpoint.chain_id == chain_id)
@@ -376,19 +409,52 @@ def disable_old_public_endpoints_for_type(
     ).scalars().all()
 
     now = utcnow()
-
     for ep in rows:
-        if ep.url not in keep_urls:
-            ep.is_enabled = 0
-            ep.selected_for_dashboard = 0
-            ep.last_check_ok = 0
-            ep.status = "dead"
-            ep.check_error = "not selected by public_rpc_collector"
-            ep.last_checked_at = now
-            ep.last_fail_at = now
-            ep.consecutive_fail_count = int(ep.consecutive_fail_count or 0) + 1
-            ep.consecutive_ok_count = 0
-            ep.updated_at = now
+        ep.selected_for_dashboard = 0
+        ep.updated_at = now
+
+
+def mark_existing_endpoint_result(
+    cache: dict,
+    chain_id: str,
+    endpoint_type: str,
+    url: str,
+    http_status: int,
+    latency_ms: int,
+    remote_height: int | None,
+    chain_id_reported: str | None,
+    error_message: str | None,
+    status: str,
+):
+    ep = cache.get((chain_id, endpoint_type, url))
+    if ep is None:
+        return
+
+    now = utcnow()
+
+    ep.status = status
+    ep.http_status = http_status
+    ep.latency_ms = latency_ms
+    ep.remote_height = remote_height
+    ep.chain_id_reported = chain_id_reported
+    ep.check_error = error_message
+    ep.last_checked_at = now
+    ep.updated_at = now
+
+    if status == "ok":
+        ep.selected_for_dashboard = 1
+        ep.last_check_ok = 1
+        ep.last_ok_at = now
+        ep.consecutive_ok_count = int(ep.consecutive_ok_count or 0) + 1
+        ep.consecutive_fail_count = 0
+        ep.is_enabled = 1
+    else:
+        ep.selected_for_dashboard = 0
+        ep.last_check_ok = 0
+        ep.last_fail_at = now
+        ep.consecutive_fail_count = int(ep.consecutive_fail_count or 0) + 1
+        ep.consecutive_ok_count = 0
+        ep.is_enabled = 0
 
 
 def update_network_fields(network: Network, prefix: str, urls: list[str]):
@@ -404,6 +470,7 @@ def update_network_fields(network: Network, prefix: str, urls: list[str]):
 def build_tasks(db):
     tasks = []
     networks = preload_networks(db)
+    _, existing_by_chain_type = preload_existing_public_endpoints(db)
 
     for network in networks:
         path = find_chain_json_for_network(network)
@@ -420,9 +487,14 @@ def build_tasks(db):
         rest_list = extract_apis(data, "rest")
         grpc_list = extract_apis(data, "grpc")
 
-        tasks.append((network.chain_id, "rpc", rpc_list))
-        tasks.append((network.chain_id, "rest", rest_list))
-        tasks.append((network.chain_id, "grpc", grpc_list))
+        for endpoint_type, discovered in (
+            ("rpc", rpc_list),
+            ("rest", rest_list),
+            ("grpc", grpc_list),
+        ):
+            existing = existing_by_chain_type.get((network.chain_id, endpoint_type), [])
+            merged_urls = merge_candidate_urls(existing, discovered)
+            tasks.append((network.chain_id, endpoint_type, merged_urls))
 
     return tasks
 
@@ -433,8 +505,8 @@ def build_tasks(db):
 
 def main():
     started = time.time()
-
     db = SessionLocal()
+
     try:
         print("Collecting tasks from current project networks...")
         scan_tasks = build_tasks(db)
@@ -466,6 +538,7 @@ def main():
                         "chain_id": chain_id,
                         "endpoint_type": endpoint_type,
                         "selected": [],
+                        "checked": [],
                     }
 
                 scan_results.append(result)
@@ -475,22 +548,38 @@ def main():
                     print(f"Scanned {done_count}/{len(scan_tasks)}")
 
         print(f"Scan phase finished in {time.time() - started:.1f}s")
-        print("Saving selected endpoints to DB...")
+        print("Saving results to network_endpoints...")
 
         network_map = {n.chain_id: n for n in preload_networks(db)}
-        endpoint_cache = preload_existing_public_endpoints(db)
+        endpoint_cache, _ = preload_existing_public_endpoints(db)
 
-        check_rows = []
-        selected_urls_by_chain_type = {}
+        selected_urls_by_chain_type: dict[tuple[str, str], list[str]] = {}
 
         for item in scan_results:
             chain_id = item["chain_id"]
             endpoint_type = item["endpoint_type"]
             selected = item.get("selected", [])
+            checked = item.get("checked", [])
 
-            urls = [x["url"] for x in selected]
-            selected_urls_by_chain_type[(chain_id, endpoint_type)] = urls
+            reset_selected_flags_for_type(db, chain_id, endpoint_type)
 
+            # 1) Сначала обновляем уже известные endpoint'ы по результатам проверки
+            for row in checked:
+                mark_existing_endpoint_result(
+                    cache=endpoint_cache,
+                    chain_id=chain_id,
+                    endpoint_type=endpoint_type,
+                    url=row["url"],
+                    http_status=row["http_status"],
+                    latency_ms=row["latency_ms"],
+                    remote_height=row["remote_height"],
+                    chain_id_reported=row["chain_id_reported"],
+                    error_message=row["error_message"],
+                    status=row["status"],
+                )
+
+            # 2) Затем создаём/обновляем рабочие endpoint'ы и выбираем top-N
+            selected_urls = []
             for idx, row in enumerate(selected, start=1):
                 ep = get_or_create_public_endpoint(
                     db=db,
@@ -515,29 +604,35 @@ def main():
                 ep.consecutive_ok_count = int(ep.consecutive_ok_count or 0) + 1
                 ep.consecutive_fail_count = 0
                 ep.updated_at = checked_at
+                ep.is_enabled = 1
 
-                check_rows.append(
-                    {
-                        "endpoint_id": ep.id,
-                        "status": "OK",
-                        "http_status": row["http_status"],
-                        "latency_ms": row["latency_ms"],
-                        "remote_height": row["remote_height"],
-                        "chain_id_reported": row["chain_id_reported"],
-                        "error_message": None,
-                        "checked_at": checked_at,
-                    }
-                )
+                selected_urls.append(row["url"])
 
-            disable_old_public_endpoints_for_type(
-                db=db,
-                chain_id=chain_id,
-                endpoint_type=endpoint_type,
-                keep_urls=set(urls),
-            )
+            selected_urls_by_chain_type[(chain_id, endpoint_type)] = selected_urls
 
-        if check_rows:
-            db.bulk_insert_mappings(EndpointCheck, check_rows)
+            # 3) Всё, что публичное, но не попало в текущий top-N и не проверялось,
+            #    просто убираем из selected_for_dashboard
+            rows = db.execute(
+                select(NetworkEndpoint)
+                .where(NetworkEndpoint.chain_id == chain_id)
+                .where(NetworkEndpoint.endpoint_type == endpoint_type)
+                .where(NetworkEndpoint.is_public == 1)
+            ).scalars().all()
+
+            checked_urls = {row["url"] for row in checked}
+            keep_urls = set(selected_urls)
+            now = utcnow()
+
+            for ep in rows:
+                ep_url = normalize_url(ep.url)
+                if not ep_url:
+                    continue
+                if ep_url in keep_urls:
+                    continue
+                if ep_url in checked_urls:
+                    continue
+                ep.selected_for_dashboard = 0
+                ep.updated_at = now
 
         touched_chain_ids = {chain_id for chain_id, _ in selected_urls_by_chain_type.keys()}
 
@@ -561,7 +656,6 @@ def main():
 
         db.commit()
 
-        print(f"Saved checks: {len(check_rows)}")
         print(f"Updated networks: {len(touched_chain_ids)}")
         print(f"Total time: {time.time() - started:.1f}s")
 
