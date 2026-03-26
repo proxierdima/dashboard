@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,6 +12,8 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_FILE = ROOT / "validator_dashboard_chainid.db"
+
+from app.core.debug_log import debug_log
 
 LINE_RE = re.compile(
     r'^([a-zA-Z_:][a-zA-Z0-9_:]*)'
@@ -696,6 +699,9 @@ def persist_metrics_sample(
 
 
 def main():
+    # region agent log
+    t0 = time.perf_counter()
+    # endregion
     conn = db_connect()
     ensure_tables(conn)
 
@@ -713,8 +719,12 @@ def main():
     total = len(validators)
     ok = 0
     fail = 0
+    first_errors: list[dict] = []
 
     for row in validators:
+        # region agent log
+        t_row0 = time.perf_counter()
+        # endregion
         validator_id = row["id"]
         chain_id = row["chain_id"]
         operator_address = row["operator_address"]
@@ -733,6 +743,10 @@ def main():
                 "empty metrics_url",
             )
             conn.commit()
+            # region agent log
+            if len(first_errors) < 5:
+                first_errors.append({"chain_id": chain_id, "error": "empty metrics_url"})
+            # endregion
             continue
 
         try:
@@ -744,15 +758,57 @@ def main():
             conn.commit()
             ok += 1
             print(f"[OK] {chain_id}")
+            # region agent log
+            debug_log(
+                run_id="pre-fix",
+                hypothesis_id="H3",
+                location="scripts_chainid/collect_validator_metrics_chainid.py:main",
+                message="validator_metrics_ok",
+                data={
+                    "chain_id": chain_id,
+                    "duration_ms": int((time.perf_counter() - t_row0) * 1000),
+                },
+            )
+            # endregion
         except Exception as e:
             snapshot = {"chain_id": chain_id, "operator_address": operator_address}
             persist_metrics_sample(conn, validator_id, metrics_url, snapshot, 0, str(e))
             conn.commit()
             fail += 1
             print(f"[ERR] {chain_id} | {e}")
+            # region agent log
+            if len(first_errors) < 5:
+                first_errors.append({"chain_id": chain_id, "error": type(e).__name__})
+            debug_log(
+                run_id="pre-fix",
+                hypothesis_id="H3",
+                location="scripts_chainid/collect_validator_metrics_chainid.py:main",
+                message="validator_metrics_err",
+                data={
+                    "chain_id": chain_id,
+                    "exc_type": type(e).__name__,
+                    "duration_ms": int((time.perf_counter() - t_row0) * 1000),
+                },
+            )
+            # endregion
 
     conn.close()
     print(f"\nDone. total={total} ok={ok} fail={fail}")
+    # region agent log
+    debug_log(
+        run_id="pre-fix",
+        hypothesis_id="H3",
+        location="scripts_chainid/collect_validator_metrics_chainid.py:main",
+        message="collector_summary",
+        data={
+            "total": total,
+            "ok": ok,
+            "fail": fail,
+            "duration_ms": int((time.perf_counter() - t0) * 1000),
+            "first_errors": first_errors,
+        },
+    )
+    # endregion
 
 
 if __name__ == "__main__":
