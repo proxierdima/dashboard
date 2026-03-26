@@ -26,6 +26,14 @@ def db_connect():
     return conn
 
 
+def get_scalar(conn, query: str, params=()):
+    row = conn.execute(query, params).fetchone()
+    if not row:
+        return 0
+    value = row[0]
+    return 0 if value is None else value
+
+
 def format_utc(ts: str | None) -> str:
     if not ts:
         return "—"

@@ -19,7 +19,9 @@ from app.models_chainid import (  # noqa: F401
     PublicRpcEndpoint,
     Validator,
     ValidatorMetricsCurrent,
+    ValidatorMetricsHistory,
 )
+
 
 def main() -> None:
     Base.metadata.drop_all(bind=engine)

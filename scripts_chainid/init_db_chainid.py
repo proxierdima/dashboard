@@ -15,10 +15,12 @@ from app.models_chainid import (  # noqa: F401
     Network,
     NetworkAsset,
     NetworkEndpoint,
-    PublicRpcCheck,
-    PublicRpcEndpoint,
+    PublicRpcEndpointCheck,
     Validator,
     ValidatorMetricsCurrent,
+    ValidatorMetricsHistory,
+    ValidatorStatusCurrent,
+    ValidatorStatusHistory,
 )
 
 
