@@ -6,15 +6,12 @@ import json
 import sqlite3
 import subprocess
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-
-from app.core.debug_log import debug_log
 
 router = APIRouter()
 
@@ -256,49 +253,14 @@ def get_dashboard_rows(conn):
 
 @router.get("/dashboard")
 def dashboard(request: Request):
-    # region agent log
-    t0 = time.perf_counter()
-    debug_log(
-        run_id="pre-fix",
-        hypothesis_id="H1",
-        location="app/web/dashboard.py:dashboard",
-        message="dashboard_request_start",
-        data={"path": str(getattr(request, "url", ""))},
-    )
-    # endregion
     conn = db_connect()
     try:
-        # region agent log
-        t_totals0 = time.perf_counter()
-        # endregion
         totals = get_dashboard_totals(conn)
-        # region agent log
-        debug_log(
-            run_id="pre-fix",
-            hypothesis_id="H1",
-            location="app/web/dashboard.py:dashboard",
-            message="dashboard_totals_done",
-            data={"duration_ms": int((time.perf_counter() - t_totals0) * 1000), "totals": totals},
-        )
-        t_rows0 = time.perf_counter()
-        # endregion
         rows = get_dashboard_rows(conn)
-        # region agent log
-        debug_log(
-            run_id="pre-fix",
-            hypothesis_id="H1",
-            location="app/web/dashboard.py:dashboard",
-            message="dashboard_rows_done",
-            data={
-                "duration_ms": int((time.perf_counter() - t_rows0) * 1000),
-                "rows_count": len(rows),
-            },
-        )
-        # endregion
     finally:
         conn.close()
 
-    resp = TEMPLATES.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
@@ -306,16 +268,6 @@ def dashboard(request: Request):
             "rows": rows,
         },
     )
-    # region agent log
-    debug_log(
-        run_id="pre-fix",
-        hypothesis_id="H1",
-        location="app/web/dashboard.py:dashboard",
-        message="dashboard_request_end",
-        data={"duration_ms": int((time.perf_counter() - t0) * 1000)},
-    )
-    # endregion
-    return resp
 
 
 @router.get("/dashboard/rewards")

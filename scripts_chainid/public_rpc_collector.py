@@ -17,7 +17,6 @@ from sqlalchemy import select
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.core.db import SessionLocal
-from app.core.debug_log import debug_log
 from app.models_chainid import Network, NetworkEndpoint
 
 
@@ -94,13 +93,7 @@ def find_chain_json_for_network(network: Network) -> Path | None:
     target_chain_id = (getattr(network, "chain_id", None) or "").strip()
     target_dir = normalize_name(getattr(network, "directory", None))
     target_name = normalize_name(getattr(network, "name", None))
-
-    # region agent log
-    t0 = time.perf_counter()
-    scanned = 0
-    # endregion
     for chain_json in CHAIN_REGISTRY_DIR.rglob("chain.json"):
-        scanned += 1
         if any(part.startswith(".") for part in chain_json.parts):
             continue
 
@@ -116,22 +109,6 @@ def find_chain_json_for_network(network: Network) -> Path | None:
             return chain_json
         if target_name and parent_name == target_name:
             return chain_json
-
-    # region agent log
-    debug_log(
-        run_id="pre-fix",
-        hypothesis_id="H4",
-        location="scripts_chainid/public_rpc_collector.py:find_chain_json_for_network",
-        message="chain_registry_scan_miss",
-        data={
-            "chain_id": target_chain_id,
-            "network_name": getattr(network, "name", None),
-            "network_dir": getattr(network, "directory", None),
-            "scanned": scanned,
-            "duration_ms": int((time.perf_counter() - t0) * 1000),
-        },
-    )
-    # endregion
     return None
 
 
