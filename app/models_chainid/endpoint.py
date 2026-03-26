@@ -1,4 +1,4 @@
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models_chainid.base import Base
@@ -13,6 +13,14 @@ class NetworkEndpoint(Base):
             "url",
             name="uq_network_endpoint_chain_type_url",
         ),
+        Index(
+            "ix_network_endpoints_chain_type_public_enabled_status",
+            "chain_id",
+            "endpoint_type",
+            "is_public",
+            "is_enabled",
+            "status",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -21,12 +29,31 @@ class NetworkEndpoint(Base):
         ForeignKey("networks.chain_id"),
         index=True,
     )
-    endpoint_type: Mapped[str] = mapped_column(String(20))
-    label: Mapped[str | None] = mapped_column(String(20))
+    endpoint_type: Mapped[str] = mapped_column(String(20), index=True)
+    label: Mapped[str | None] = mapped_column(String(50))
     url: Mapped[str] = mapped_column(String(500))
     priority: Mapped[int] = mapped_column(Integer, default=1)
-    is_public: Mapped[int] = mapped_column(Integer, default=1)
-    is_enabled: Mapped[int] = mapped_column(Integer, default=1)
+    source: Mapped[str | None] = mapped_column(String(50))
+    is_public: Mapped[int] = mapped_column(Integer, default=1, index=True)
+    is_enabled: Mapped[int] = mapped_column(Integer, default=1, index=True)
+
+    status: Mapped[str | None] = mapped_column(String(20), index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    remote_height: Mapped[int | None] = mapped_column(Integer)
+    chain_id_reported: Mapped[str | None] = mapped_column(String(120))
+    check_error: Mapped[str | None] = mapped_column(String(1000))
+
+    consecutive_fail_count: Mapped[int] = mapped_column(Integer, default=0)
+    consecutive_ok_count: Mapped[int] = mapped_column(Integer, default=0)
+    selected_for_dashboard: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    last_check_ok: Mapped[int] = mapped_column(Integer, default=0, index=True)
+
+    first_seen_at: Mapped[DateTime | None] = mapped_column(DateTime)
+    last_checked_at: Mapped[DateTime | None] = mapped_column(DateTime, index=True)
+    last_ok_at: Mapped[DateTime | None] = mapped_column(DateTime, index=True)
+    last_fail_at: Mapped[DateTime | None] = mapped_column(DateTime)
+
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(
         DateTime,

@@ -329,6 +329,14 @@ def get_or_create_public_endpoint(
             ep.label = "public"
             changed = True
 
+        if ep.source != "chain-registry":
+            ep.source = "chain-registry"
+            changed = True
+
+        if ep.first_seen_at is None:
+            ep.first_seen_at = now
+            changed = True
+
         if changed:
             ep.updated_at = now
 
@@ -340,8 +348,10 @@ def get_or_create_public_endpoint(
         label="public",
         url=url,
         priority=priority,
+        source="chain-registry",
         is_public=1,
         is_enabled=1,
+        first_seen_at=now,
         created_at=now,
         updated_at=now,
     )
@@ -368,8 +378,16 @@ def disable_old_public_endpoints_for_type(
     now = utcnow()
 
     for ep in rows:
-        if ep.url not in keep_urls and ep.is_enabled != 0:
+        if ep.url not in keep_urls:
             ep.is_enabled = 0
+            ep.selected_for_dashboard = 0
+            ep.last_check_ok = 0
+            ep.status = "dead"
+            ep.check_error = "not selected by public_rpc_collector"
+            ep.last_checked_at = now
+            ep.last_fail_at = now
+            ep.consecutive_fail_count = int(ep.consecutive_fail_count or 0) + 1
+            ep.consecutive_ok_count = 0
             ep.updated_at = now
 
 
@@ -483,6 +501,21 @@ def main():
                     priority=idx,
                 )
 
+                checked_at = utcnow()
+                ep.status = "ok"
+                ep.http_status = row["http_status"]
+                ep.latency_ms = row["latency_ms"]
+                ep.remote_height = row["remote_height"]
+                ep.chain_id_reported = row["chain_id_reported"]
+                ep.check_error = None
+                ep.selected_for_dashboard = 1
+                ep.last_check_ok = 1
+                ep.last_checked_at = checked_at
+                ep.last_ok_at = checked_at
+                ep.consecutive_ok_count = int(ep.consecutive_ok_count or 0) + 1
+                ep.consecutive_fail_count = 0
+                ep.updated_at = checked_at
+
                 check_rows.append(
                     {
                         "endpoint_id": ep.id,
@@ -492,7 +525,7 @@ def main():
                         "remote_height": row["remote_height"],
                         "chain_id_reported": row["chain_id_reported"],
                         "error_message": None,
-                        "checked_at": utcnow(),
+                        "checked_at": checked_at,
                     }
                 )
 

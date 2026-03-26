@@ -278,43 +278,30 @@ def dashboard_public_rpc(request: Request):
             rows_raw = conn.execute(
                 """
                 SELECT
-                    pre.id,
-                    pre.chain_id,
-                    COALESCE(n.display_name, n.name, pre.chain_id) AS network_name,
-                    pre.url,
-                    pre.label,
-                    pre.priority,
-                    pre.endpoint_type,
-                    pre.is_enabled,
-
-                    prc.status,
-                    prc.http_status,
-                    prc.latency_ms,
-                    prc.remote_height,
-                    prc.chain_id_reported,
-                    prc.error_message,
-                    prc.checked_at
-
-                FROM public_rpc_endpoints pre
+                    ne.id,
+                    ne.chain_id,
+                    COALESCE(n.display_name, n.name, ne.chain_id) AS network_name,
+                    ne.url,
+                    ne.label,
+                    ne.priority,
+                    ne.endpoint_type,
+                    ne.is_enabled,
+                    ne.status,
+                    ne.http_status,
+                    ne.latency_ms,
+                    ne.remote_height,
+                    ne.chain_id_reported,
+                    ne.check_error AS error_message,
+                    ne.last_checked_at AS checked_at
+                FROM network_endpoints ne
                 LEFT JOIN networks n
-                  ON n.chain_id = pre.chain_id
-                LEFT JOIN (
-                    SELECT c1.*
-                    FROM public_rpc_checks c1
-                    JOIN (
-                        SELECT endpoint_id, MAX(checked_at) AS max_checked_at
-                        FROM public_rpc_checks
-                        GROUP BY endpoint_id
-                    ) c2
-                      ON c1.endpoint_id = c2.endpoint_id
-                     AND c1.checked_at = c2.max_checked_at
-                ) prc
-                  ON prc.endpoint_id = pre.id
-                WHERE COALESCE(pre.is_enabled, 1) = 1
+                  ON n.chain_id = ne.chain_id
+                WHERE COALESCE(ne.is_public, 1) = 1
+                  AND COALESCE(ne.is_enabled, 1) = 1
                 ORDER BY
                     network_name ASC,
-                    COALESCE(pre.priority, 999999) ASC,
-                    pre.url ASC
+                    COALESCE(ne.priority, 999999) ASC,
+                    ne.url ASC
                 """
             ).fetchall()
         except sqlite3.OperationalError:
